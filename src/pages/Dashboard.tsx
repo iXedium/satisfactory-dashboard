@@ -13,6 +13,7 @@ import {
   DialogContentText,
   DialogActions,
   Button,
+  Fade,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
@@ -94,14 +95,20 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <Grid container spacing={3} sx={{ p: { xs: 2, sm: 3 } }}>
+    <Box
+      sx={{
+        minHeight: "100vh",
+        bgcolor: "background.default",
+        p: { xs: 2, sm: 3 },
+      }}
+    >
       <Dialog
         open={dialogOpen}
         onClose={handleDialogClose}
         PaperProps={{
           sx: {
             borderRadius: 3,
-            background: "#1A1D24",
+            background: "#1D1D1D",
             border: "1px solid rgba(255, 255, 255, 0.06)",
           },
         }}
@@ -133,8 +140,8 @@ const Dashboard: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+      <Grid container spacing={3} justifyContent="flex-start">
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
           <Card
             elevation={0}
             sx={{
@@ -180,7 +187,7 @@ const Dashboard: React.FC = () => {
         </Grid>
 
         {builds.map((build) => (
-          <Grid key={build.id} size={{ xs: 12, sm: 6, md: 4 }}>
+          <Grid key={build.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
             <Card
               elevation={0}
               sx={{
@@ -189,6 +196,10 @@ const Dashboard: React.FC = () => {
                 transition: "all 0.2s ease-in-out",
                 "&:hover": {
                   transform: "translateY(-4px)",
+                  "& .card-actions": {
+                    opacity: 1,
+                    transform: "translateY(0)",
+                  },
                 },
               }}
             >
@@ -227,37 +238,55 @@ const Dashboard: React.FC = () => {
                 </CardContent>
               ) : (
                 <>
-                  <Box
-                    sx={{
-                      position: "absolute",
-                      top: 12,
-                      right: 12,
-                      display: "flex",
-                      gap: 1,
-                      zIndex: 1,
-                    }}
-                  >
-                    <IconButton
-                      size="small"
-                      onClick={() => handleEditBuild(build.id!)}
+                  <Fade in timeout={200}>
+                    <Box
+                      className="card-actions"
                       sx={{
-                        color: "text.secondary",
-                        "&:hover": { color: "primary.main" },
+                        position: "absolute",
+                        top: 12,
+                        right: 12,
+                        display: "flex",
+                        gap: 1,
+                        zIndex: 1,
+                        opacity: 0,
+                        transform: "translateY(-8px)",
+                        transition: "all 0.2s ease-in-out",
                       }}
                     >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDialogOpen(build.id!)}
-                      sx={{
-                        color: "text.secondary",
-                        "&:hover": { color: "error.main" },
-                      }}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleEditBuild(build.id!)}
+                        sx={{
+                          color: "text.secondary",
+                          bgcolor: "rgba(255, 255, 255, 0.04)",
+                          "&:hover": {
+                            bgcolor: "rgba(255, 255, 255, 0.08)",
+                            "& .MuiSvgIcon-root": {
+                              color: "#0078FF",
+                            },
+                          },
+                        }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDialogOpen(build.id!)}
+                        sx={{
+                          color: "text.secondary",
+                          bgcolor: "rgba(255, 255, 255, 0.04)",
+                          "&:hover": {
+                            bgcolor: "rgba(255, 255, 255, 0.08)",
+                            "& .MuiSvgIcon-root": {
+                              color: "#FF4D4D",
+                            },
+                          },
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </Fade>
 
                   <CardContent sx={{ height: "100%", p: 2.5 }}>
                     <Typography
@@ -291,7 +320,7 @@ const Dashboard: React.FC = () => {
                           sx={{
                             p: 0.5,
                             borderRadius: 1,
-                            bgcolor: "rgba(78, 204, 163, 0.1)",
+                            bgcolor: "rgba(0, 255, 200, 0.1)",
                           }}
                         >
                           <FactoryIcon
@@ -303,7 +332,7 @@ const Dashboard: React.FC = () => {
                           sx={{
                             p: 0.5,
                             borderRadius: 1,
-                            bgcolor: "rgba(255, 255, 255, 0.05)",
+                            bgcolor: "rgba(255, 255, 255, 0.04)",
                           }}
                         >
                           <FactoryIcon
@@ -315,7 +344,7 @@ const Dashboard: React.FC = () => {
                           sx={{
                             p: 0.5,
                             borderRadius: 1,
-                            bgcolor: "rgba(255, 255, 255, 0.05)",
+                            bgcolor: "rgba(255, 255, 255, 0.04)",
                           }}
                         >
                           <FactoryIcon
@@ -344,8 +373,8 @@ const Dashboard: React.FC = () => {
                         variant="determinate"
                         value={98}
                         sx={{
-                          height: 6,
-                          bgcolor: "rgba(78, 204, 163, 0.1)",
+                          height: 8,
+                          bgcolor: "rgba(0, 255, 200, 0.1)",
                           "& .MuiLinearProgress-bar": {
                             bgcolor: "primary.main",
                           },
@@ -364,18 +393,19 @@ const Dashboard: React.FC = () => {
                         <Typography variant="body2" color="text.secondary">
                           Production Rate
                         </Typography>
-                        <Typography variant="body2" color="primary.main">
+                        <Typography variant="body2" color="warning.main">
                           45/min
                         </Typography>
                       </Box>
                       <LinearProgress
                         variant="determinate"
                         value={75}
+                        color="warning"
                         sx={{
-                          height: 6,
-                          bgcolor: "rgba(78, 204, 163, 0.1)",
+                          height: 8,
+                          bgcolor: "rgba(255, 195, 0, 0.1)",
                           "& .MuiLinearProgress-bar": {
-                            bgcolor: "primary.main",
+                            bgcolor: "warning.main",
                           },
                         }}
                       />
@@ -387,7 +417,7 @@ const Dashboard: React.FC = () => {
           </Grid>
         ))}
       </Grid>
-    </Grid>
+    </Box>
   );
 };
 
