@@ -1,5 +1,4 @@
 import React from "react";
-import { Link } from "react-router-dom";
 import {
   Box,
   CssBaseline,
@@ -12,12 +11,13 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
+  Switch,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import HomeIcon from "@mui/icons-material/Home";
-import SettingsIcon from "@mui/icons-material/Settings";
-
-const drawerWidth = 240;
+import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
+import { Link } from "react-router-dom";
+import { useThemeContext } from "../context/ThemeContext";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -25,6 +25,7 @@ interface AdminLayoutProps {
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const { toggleTheme, mode } = useThemeContext();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -42,11 +43,15 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </ListItem>
         <ListItem component={Link} to="/compare">
           <ListItemIcon>
-            <SettingsIcon />
+            <CompareArrowsIcon />
           </ListItemIcon>
           <ListItemText primary="Compare States" />
         </ListItem>
       </List>
+      <Box sx={{ padding: 2 }}>
+        <Typography>Theme: {mode}</Typography>
+        <Switch onChange={toggleTheme} checked={mode === "dark"} />
+      </Box>
     </div>
   );
 
@@ -56,8 +61,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       <AppBar
         position="fixed"
         sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
+          width: { sm: `calc(100% - 240px)` },
+          ml: { sm: `240px` },
         }}
       >
         <Toolbar>
@@ -77,7 +82,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       </AppBar>
       <Box
         component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+        sx={{ width: { sm: 240 }, flexShrink: { sm: 0 } }}
         aria-label="mailbox folders"
       >
         <Drawer
@@ -89,10 +94,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           }}
           sx={{
             display: { xs: "block", sm: "none" },
-            "& .MuiDrawer-paper": {
-              boxSizing: "border-box",
-              width: drawerWidth,
-            },
+            "& .MuiDrawer-paper": { boxSizing: "border-box", width: 240 },
           }}
         >
           {drawer}
@@ -101,10 +103,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           variant="permanent"
           sx={{
             display: { xs: "none", sm: "block" },
-            "& .MuiDrawer-paper": {
-              boxSizing: "border-box",
-              width: drawerWidth,
-            },
+            "& .MuiDrawer-paper": { boxSizing: "border-box", width: 240 },
           }}
           open
         >
@@ -113,11 +112,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       </Box>
       <Box
         component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-        }}
+        sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - 240px)` } }}
       >
         <Toolbar />
         {children}

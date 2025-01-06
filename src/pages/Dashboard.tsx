@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from "react";
 import Grid from "@mui/material/Grid2"; // Use Grid2
-import { Paper, Typography, Button } from "@mui/material";
+import {
+  Paper,
+  Typography,
+  Button,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+} from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { addBuild, getBuilds, Build } from "../db";
 
 const Dashboard: React.FC = () => {
@@ -40,6 +48,18 @@ const Dashboard: React.FC = () => {
             <Typography>
               Production Chains: {build.productionChains.length}
             </Typography>
+            <Accordion>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography>Details</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                {build.productionChains.map((chain) => (
+                  <div key={chain.id}>
+                    {chain.name} - {chain.rate} items/min
+                  </div>
+                ))}
+              </AccordionDetails>
+            </Accordion>
           </Paper>
         </Grid>
       ))}
