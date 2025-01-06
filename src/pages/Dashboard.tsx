@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import Grid from '@mui/material/Grid2'; // Correct import
-import { Paper, Typography, Button } from '@mui/material';
-import { addBuild, getBuilds, Build } from '../db';
+import React, { useEffect, useState } from "react";
+import Grid from "@mui/material/Grid2"; // Use Grid2
+import { Paper, Typography, Button } from "@mui/material";
+import { addBuild, getBuilds, Build } from "../db";
 
 const Dashboard: React.FC = () => {
   const [builds, setBuilds] = useState<Build[]>([]);
@@ -23,7 +23,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <Grid container spacing={3}>
-      <Grid sx={{ gridColumn: { xs: 'span 12' } }}>
+      <Grid sx={{ gridColumn: { xs: "span 12" } }}>
         <Button variant="contained" onClick={handleAddBuild}>
           Add New Build
         </Button>
@@ -32,12 +32,14 @@ const Dashboard: React.FC = () => {
         <Grid
           key={build.id}
           sx={{
-            gridColumn: { xs: 'span 12', sm: 'span 6', md: 'span 4' },
+            gridColumn: { xs: "span 12", sm: "span 6", md: "span 4" },
           }}
         >
           <Paper elevation={3} sx={{ padding: 2 }}>
             <Typography variant="h6">{build.name}</Typography>
-            <Typography>Production Chains: {build.productionChains.length}</Typography>
+            <Typography>
+              Production Chains: {build.productionChains.length}
+            </Typography>
           </Paper>
         </Grid>
       ))}
