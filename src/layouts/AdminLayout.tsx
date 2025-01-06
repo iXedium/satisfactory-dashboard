@@ -8,18 +8,18 @@ import {
   Typography,
   IconButton,
   List,
-  ListItem,
+  ListItemButton,
   ListItemIcon,
   ListItemText,
-  Switch,
-  useTheme,
+  Avatar,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import HomeIcon from "@mui/icons-material/Home";
 import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
-import DarkModeIcon from "@mui/icons-material/DarkMode";
+import InventoryIcon from "@mui/icons-material/Inventory";
+import NotificationsIcon from "@mui/icons-material/Notifications";
+import SettingsIcon from "@mui/icons-material/Settings";
 import { Link, useLocation } from "react-router-dom";
-import { useThemeContext } from "../context/ThemeContext";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -27,9 +27,7 @@ interface AdminLayoutProps {
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const { toggleTheme, mode } = useThemeContext();
   const location = useLocation();
-  const theme = useTheme();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -43,14 +41,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        background: "linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 100%)",
       }}
     >
       <Toolbar
         sx={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: "flex-start",
+          px: 2,
           py: 2,
         }}
       >
@@ -58,9 +56,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           variant="h6"
           sx={{
             fontWeight: 700,
-            background: "linear-gradient(45deg, #00E5FF, #5EFFFF)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
+            color: "text.primary",
           }}
         >
           Satisfactory
@@ -68,24 +64,20 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       </Toolbar>
 
       <List sx={{ flex: 1, px: 2 }}>
-        <ListItem
+        <ListItemButton
           component={Link}
           to="/"
+          selected={isCurrentRoute("/")}
           sx={{
             borderRadius: 2,
             mb: 1,
-            background: isCurrentRoute("/")
-              ? "linear-gradient(45deg, rgba(0,229,255,0.15), rgba(94,255,255,0.15))"
-              : "transparent",
             "& .MuiListItemIcon-root": {
               color: isCurrentRoute("/") ? "primary.main" : "text.secondary",
+              minWidth: 40,
             },
             "& .MuiListItemText-primary": {
               color: isCurrentRoute("/") ? "primary.main" : "text.primary",
               fontWeight: isCurrentRoute("/") ? 600 : 400,
-            },
-            "&:hover": {
-              background: "linear-gradient(45deg, rgba(0,229,255,0.1), rgba(94,255,255,0.1))",
             },
           }}
         >
@@ -93,26 +85,22 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             <HomeIcon />
           </ListItemIcon>
           <ListItemText primary="Dashboard" />
-        </ListItem>
+        </ListItemButton>
 
-        <ListItem
+        <ListItemButton
           component={Link}
           to="/compare"
+          selected={isCurrentRoute("/compare")}
           sx={{
             borderRadius: 2,
             mb: 1,
-            background: isCurrentRoute("/compare")
-              ? "linear-gradient(45deg, rgba(0,229,255,0.15), rgba(94,255,255,0.15))"
-              : "transparent",
             "& .MuiListItemIcon-root": {
               color: isCurrentRoute("/compare") ? "primary.main" : "text.secondary",
+              minWidth: 40,
             },
             "& .MuiListItemText-primary": {
               color: isCurrentRoute("/compare") ? "primary.main" : "text.primary",
               fontWeight: isCurrentRoute("/compare") ? 600 : 400,
-            },
-            "&:hover": {
-              background: "linear-gradient(45deg, rgba(0,229,255,0.1), rgba(94,255,255,0.1))",
             },
           }}
         >
@@ -120,80 +108,107 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             <CompareArrowsIcon />
           </ListItemIcon>
           <ListItemText primary="Compare States" />
-        </ListItem>
+        </ListItemButton>
+
+        <ListItemButton
+          component={Link}
+          to="/resources"
+          selected={isCurrentRoute("/resources")}
+          sx={{
+            borderRadius: 2,
+            mb: 1,
+            "& .MuiListItemIcon-root": {
+              color: isCurrentRoute("/resources") ? "primary.main" : "text.secondary",
+              minWidth: 40,
+            },
+            "& .MuiListItemText-primary": {
+              color: isCurrentRoute("/resources") ? "primary.main" : "text.primary",
+              fontWeight: isCurrentRoute("/resources") ? 600 : 400,
+            },
+          }}
+        >
+          <ListItemIcon>
+            <InventoryIcon />
+          </ListItemIcon>
+          <ListItemText primary="Resources" />
+        </ListItemButton>
       </List>
 
       <Box
         sx={{
           p: 2,
           borderTop: "1px solid",
-          borderColor: "rgba(255,255,255,0.1)",
-          display: "flex",
-          alignItems: "center",
-          gap: 2,
+          borderColor: "divider",
         }}
       >
-        <DarkModeIcon sx={{ color: "text.secondary" }} />
-        <Switch
-          checked={mode === "dark"}
-          onChange={toggleTheme}
-          sx={{
-            "& .MuiSwitch-switchBase.Mui-checked": {
-              color: theme.palette.primary.main,
-            },
-            "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
-              backgroundColor: theme.palette.primary.main,
-            },
-          }}
-        />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+          <Avatar
+            sx={{
+              width: 32,
+              height: 32,
+              bgcolor: "primary.main",
+            }}
+          >
+            JD
+          </Avatar>
+          <Box>
+            <Typography variant="subtitle2" sx={{ color: "text.primary" }}>
+              John Doe
+            </Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              Administrator
+            </Typography>
+          </Box>
+        </Box>
       </Box>
     </Box>
   );
 
   return (
-    <Box sx={{ display: "flex" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh" }}>
       <CssBaseline />
       <AppBar
         position="fixed"
-        elevation={0}
         sx={{
           width: { sm: `calc(100% - 240px)` },
           ml: { sm: `240px` },
-          backdropFilter: "blur(10px)",
-          background: "rgba(0,0,0,0.5)",
-          borderBottom: "1px solid",
-          borderColor: "rgba(255,255,255,0.1)",
         }}
       >
-        <Toolbar>
+        <Toolbar sx={{ justifyContent: "space-between" }}>
           <IconButton
             color="inherit"
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{
-              mr: 2,
-              display: { sm: "none" },
-              "&:hover": {
-                background: "rgba(255,255,255,0.1)",
-              },
-            }}
+            sx={{ mr: 2, display: { sm: "none" } }}
           >
             <MenuIcon />
           </IconButton>
-          <Typography
-            variant="h6"
-            noWrap
-            component="div"
-            sx={{
-              background: "linear-gradient(45deg, #00E5FF, #5EFFFF)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              fontWeight: 700,
-            }}
-          >
-            Dashboard
-          </Typography>
+
+          <Box sx={{ flex: 1 }} />
+
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <IconButton
+              size="small"
+              sx={{
+                bgcolor: "rgba(42, 62, 80, 0.8)",
+                backdropFilter: "blur(10px)",
+                "&:hover": { bgcolor: "rgba(42, 62, 80, 0.95)" },
+              }}
+            >
+              <NotificationsIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              sx={{
+                bgcolor: "rgba(42, 62, 80, 0.8)",
+                backdropFilter: "blur(10px)",
+                "&:hover": { bgcolor: "rgba(42, 62, 80, 0.95)" },
+              }}
+            >
+              <SettingsIcon fontSize="small" />
+            </IconButton>
+          </Box>
         </Toolbar>
       </AppBar>
 
@@ -216,8 +231,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
               width: 240,
-              border: "none",
-              background: "linear-gradient(180deg, #1A1A1A 0%, #2D2D2D 100%)",
             },
           }}
         >
@@ -230,8 +243,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
               width: 240,
-              border: "none",
-              background: "linear-gradient(180deg, #1A1A1A 0%, #2D2D2D 100%)",
             },
           }}
           open
@@ -244,13 +255,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
           width: { sm: `calc(100% - 240px)` },
-          minHeight: "100vh",
-          background: "linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 100%)",
+          mt: 8,
         }}
       >
-        <Toolbar />
         {children}
       </Box>
     </Box>
