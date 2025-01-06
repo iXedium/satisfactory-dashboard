@@ -1,15 +1,13 @@
-import React from 'react';
-import { ThemeProvider, CssBaseline } from '@mui/material';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import theme from './theme/theme';
-import AdminLayout from './layouts/AdminLayout';
-import Dashboard from './pages/Dashboard';
-import CompareStates from './pages/CompareStates';
+import React from "react";
+import { ThemeContextProvider } from "./context/ThemeContext";
+import AdminLayout from "./layouts/AdminLayout";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Dashboard from "./pages/Dashboard";
+import CompareStates from "./pages/CompareStates";
 
 const App: React.FC = () => {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <ThemeContextProvider>
       <Router>
         <AdminLayout>
           <Routes>
@@ -18,7 +16,7 @@ const App: React.FC = () => {
           </Routes>
         </AdminLayout>
       </Router>
-    </ThemeProvider>
+    </ThemeContextProvider>
   );
 };
 
