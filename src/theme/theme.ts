@@ -3,34 +3,34 @@ import { alpha } from "@mui/material/styles";
 
 const darkThemeColors = {
   primary: {
-    main: "#00FFC8", // Teal Green
-    light: "#33FFD4",
-    dark: "#00CCB3",
-    contrastText: "#121212",
+    main: "#2CCB70", // Primary Accent
+    light: "#4DD88C",
+    dark: "#229F58",
+    contrastText: "#FFFFFF",
   },
   secondary: {
-    main: "#0078FF", // Blue
-    light: "#3393FF",
-    dark: "#0060CC",
+    main: "#1A73E8", // Secondary Accent
+    light: "#4A90EA",
+    dark: "#1557B0",
     contrastText: "#FFFFFF",
   },
   error: {
-    main: "#FF4D4D", // Red
-    light: "#FF7373",
-    dark: "#CC3D3D",
+    main: "#E53935", // Error
+    light: "#EF5350",
+    dark: "#C62828",
   },
   warning: {
-    main: "#FFC300", // Yellow
-    light: "#FFCF33",
-    dark: "#CC9C00",
+    main: "#F6C90E", // Warning
+    light: "#FFD54F",
+    dark: "#FFA000",
   },
   background: {
-    default: "#121212", // Dark Gray
-    paper: "#1D1D1D", // Slightly lighter Dark Gray
+    default: "#131A22", // Dark Background
+    paper: "#1B2631", // Card Background
   },
   text: {
-    primary: "#E0E0E0", // Light Gray
-    secondary: "#B3B3B3", // Muted Gray
+    primary: "#FFFFFF", // Primary Text
+    secondary: "#A0AEC0", // Secondary Text
   },
 };
 
@@ -45,7 +45,7 @@ export const getTheme = (mode: "light" | "dark") =>
       h4: {
         fontWeight: 700,
         letterSpacing: "-0.02em",
-        color: mode === "dark" ? "#00FFC8" : undefined,
+        color: mode === "dark" ? "#FFFFFF" : undefined,
       },
       h5: {
         fontWeight: 600,
@@ -68,7 +68,7 @@ export const getTheme = (mode: "light" | "dark") =>
       MuiCard: {
         styleOverrides: {
           root: {
-            background: mode === "dark" ? "#1D1D1D" : undefined,
+            background: mode === "dark" ? "#1B2631" : undefined,
             border: mode === "dark" ? `1px solid ${alpha("#FFFFFF", 0.06)}` : undefined,
             borderRadius: 16,
             minWidth: 280,
@@ -95,19 +95,19 @@ export const getTheme = (mode: "light" | "dark") =>
           },
           contained: {
             boxShadow: "none",
-            background: mode === "dark" ? "#00FFC8" : undefined,
-            color: mode === "dark" ? "#121212" : undefined,
+            background: mode === "dark" ? "#2CCB70" : undefined,
+            color: mode === "dark" ? "#FFFFFF" : undefined,
             "&:hover": {
               boxShadow: "none",
               transform: "translateY(-1px)",
-              background: mode === "dark" ? "#33FFD4" : undefined,
+              background: mode === "dark" ? "#4DD88C" : undefined,
             },
           },
           outlined: {
             borderWidth: 1,
             "&:hover": {
               borderWidth: 1,
-              background: mode === "dark" ? "#2C2C2C" : undefined,
+              background: mode === "dark" ? "#2A3E50" : undefined,
             },
           },
         },
@@ -117,7 +117,7 @@ export const getTheme = (mode: "light" | "dark") =>
           root: {
             transition: "all 0.2s ease-in-out",
             padding: 8,
-            background: mode === "dark" ? "#2C2C2C" : undefined,
+            background: mode === "dark" ? "#2A3E50" : undefined,
             "&:hover": {
               transform: "scale(1.1)",
               "& .MuiSvgIcon-root": {
@@ -133,13 +133,19 @@ export const getTheme = (mode: "light" | "dark") =>
       MuiDrawer: {
         styleOverrides: {
           paper: {
-            backgroundColor: mode === "dark" ? "#121212" : undefined,
+            backgroundColor: mode === "dark" ? "#131A22" : undefined,
             borderRight: mode === "dark" ? `1px solid ${alpha("#FFFFFF", 0.06)}` : undefined,
-            transition: "width 0.3s ease-in-out",
+            transition: "width 0.3s ease-in-out, transform 0.3s ease-in-out",
             overflowX: "hidden",
             width: 240,
+            position: "absolute",
+            height: "100%",
             "&.collapsed": {
               width: 72,
+              transform: "translateX(-168px)",
+              "&:hover": {
+                transform: "translateX(0)",
+              },
             },
           },
         },
@@ -147,7 +153,7 @@ export const getTheme = (mode: "light" | "dark") =>
       MuiAppBar: {
         styleOverrides: {
           root: {
-            backgroundColor: mode === "dark" ? alpha("#121212", 0.95) : undefined,
+            backgroundColor: mode === "dark" ? alpha("#131A22", 0.95) : undefined,
             backdropFilter: "blur(10px)",
             borderBottom: mode === "dark" ? `1px solid ${alpha("#FFFFFF", 0.06)}` : undefined,
           },
@@ -173,12 +179,12 @@ export const getTheme = (mode: "light" | "dark") =>
             margin: "4px 8px",
             transition: "all 0.2s ease-in-out",
             "&:hover": {
-              backgroundColor: mode === "dark" ? "#2C2C2C" : undefined,
+              backgroundColor: mode === "dark" ? "#2A3E50" : undefined,
             },
             "&.Mui-selected": {
-              backgroundColor: mode === "dark" ? alpha("#00FFC8", 0.1) : undefined,
+              backgroundColor: mode === "dark" ? alpha("#2CCB70", 0.1) : undefined,
               "&:hover": {
-                backgroundColor: mode === "dark" ? alpha("#00FFC8", 0.15) : undefined,
+                backgroundColor: mode === "dark" ? alpha("#2CCB70", 0.15) : undefined,
               },
             },
           },
@@ -188,7 +194,7 @@ export const getTheme = (mode: "light" | "dark") =>
         styleOverrides: {
           root: {
             minWidth: 40,
-            color: mode === "dark" ? "#B3B3B3" : undefined,
+            color: mode === "dark" ? "#A0AEC0" : undefined,
           },
         },
       },
