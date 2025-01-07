@@ -20,7 +20,7 @@
    - Handle data operations with Dexie for efficiency and flexibility.
 
 5. **Feature Development**:
-   - Ensure the implementation of all features aligns with the project’s goals and adheres to best practices.
+   - Ensure the implementation of all features aligns with the project's goals and adheres to best practices.
    - Implement smooth animations for transitions and interactions when applicable.
    - Prioritize responsiveness and performance, utilizing techniques like memoization and virtualization.
 
@@ -44,32 +44,44 @@
 
 ### **Production Planner**
 #### Overview:
-The Production Planner is a dedicated page linked from the dashboard’s build cards. It allows users to:
+The Production Planner is a dedicated page linked from the dashboard's build cards. It allows users to:
 1. Add initial items to produce, select recipes, and set production rates.
 2. Dynamically calculate and display dependencies in a tree structure.
 
 #### Tasks:
-1. **Planner Page Setup**:
-   - Create a new route (`/planner`) and link it to the build cards.
-   - Build the basic layout with two sections:
-     - A collapsible panel for adding initial items.
-     - A main area for displaying the production chain tree.
+1. ✅ **Planner Page Setup**:
+   - ✅ Create a new route (`/planner`) and link it to the build cards.
+   - ✅ Build the basic layout with two sections:
+     - ✅ A collapsible panel for adding initial items.
+     - ✅ A main area for displaying the production chain tree.
 
-2. **Collapsible Section for Initial Items**:
-   - Create a form to input:
-     - Item to produce.
-     - Recipe selection.
-     - Desired production rate.
-   - Add a toggle to collapse/expand this section.
+2. ✅ **Collapsible Section for Initial Items**:
+   - ✅ Create a form to input:
+     - ✅ Item to produce.
+     - ✅ Recipe selection.
+     - ✅ Desired production rate.
+   - ✅ Add a toggle to collapse/expand this section.
 
-3. **Production Chain Tree List**:
-   - Use Material-UI’s `TreeView` component to display the production chain.
-   - Add nodes for items, recipes, and rates.
-   - Ensure dependencies update dynamically based on user input.
+3. ✅ **Production Chain Tree List**:
+   - ✅ Use Material-UI's TreeView and TreeItem from @mui/lab for displaying the production chain.
+   - ✅ Add nodes for items, recipes, and rates.
+   - ✅ Ensure dependencies update dynamically based on user input.
 
-4. **Styling and Integration**:
-   - Adhere to the current dark theme and styling rules.
-   - Use MUI’s grid and system properties (`sx`) for layout and spacing.
+4. ✅ **Styling and Integration**:
+   - ✅ Adhere to the current dark theme and styling rules.
+   - ✅ Use MUI's grid and system properties (`sx`) for layout and spacing.
+
+5. ✅ **Item and Recipe Integration**:
+   - ✅ Add item selection from game data.
+   - ✅ Add recipe selection from game data.
+   - ✅ Implement dependency calculation.
+   - ✅ Add node editing and deletion.
+
+6. **Next Steps**:
+   - Add node reordering.
+   - Add machine count and efficiency calculations.
+   - Add excess production tracking.
+   - Implement saving and loading builds.
 
 ---
 
@@ -86,3 +98,9 @@ The Production Planner is a dedicated page linked from the dashboard’s build c
 ### **Notes**
 - Always refer to this file before starting a new task.
 - Update this file with completed tasks, new goals, and any relevant notes after each development session.
+- The Production Planner now supports:
+  - Item selection from game data with category grouping
+  - Recipe selection with input/output details
+  - Dynamic dependency calculation based on production rates
+  - Node editing and deletion
+  - Collapsible tree structure for better organization
