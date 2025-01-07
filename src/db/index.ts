@@ -31,7 +31,7 @@ export const addBuild = async (name: string, productionChains: any[]) => {
 };
 
 export const getBuilds = async () => {
-  return await db.builds.toArray();
+  return await db.builds.reverse().toArray();
 };
 
 export const deleteBuild = async (id: number) => {

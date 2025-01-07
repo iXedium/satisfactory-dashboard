@@ -13,6 +13,7 @@ import {
   ListItemText,
   Avatar,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import MenuIcon from "@mui/icons-material/Menu";
 import HomeIcon from "@mui/icons-material/Home";
 import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
@@ -174,7 +175,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           ml: { sm: `240px` },
         }}
       >
-        <Toolbar sx={{ justifyContent: "space-between" }}>
+        <Toolbar
+          sx={{
+            justifyContent: "space-between",
+            backgroundColor: (theme) => theme.palette.background.paper,
+          }}
+        >
           <IconButton
             color="inherit"
             aria-label="open drawer"
@@ -191,9 +197,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             <IconButton
               size="small"
               sx={{
-                bgcolor: "rgba(42, 62, 80, 0.8)",
-                backdropFilter: "blur(10px)",
-                "&:hover": { bgcolor: "rgba(42, 62, 80, 0.95)" },
+                color: "text.secondary",
+                bgcolor: "action.hover",
+                "&:hover": {
+                  bgcolor: "action.selected",
+                },
               }}
             >
               <NotificationsIcon fontSize="small" />
@@ -201,9 +209,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             <IconButton
               size="small"
               sx={{
-                bgcolor: "rgba(42, 62, 80, 0.8)",
-                backdropFilter: "blur(10px)",
-                "&:hover": { bgcolor: "rgba(42, 62, 80, 0.95)" },
+                color: "text.secondary",
+                bgcolor: "action.hover",
+                "&:hover": {
+                  bgcolor: "action.selected",
+                },
               }}
             >
               <SettingsIcon fontSize="small" />

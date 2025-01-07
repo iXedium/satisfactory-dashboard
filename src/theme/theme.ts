@@ -1,17 +1,17 @@
-import { createTheme } from "@mui/material/styles";
+import { createTheme, Theme } from "@mui/material/styles";
 import { alpha } from "@mui/material/styles";
 
 const darkThemeColors = {
   primary: {
-    main: "#2CCB70",
-    light: alpha("#2CCB70", 0.12),
-    dark: alpha("#2CCB70", 0.8),
+    main: "#7ab3a4",
+    light: alpha("#7ab3a4", 0.12),
+    dark: alpha("#7ab3a4", 0.8),
     contrastText: "#FFFFFF",
   },
   secondary: {
-    main: "#1A73E8",
-    light: alpha("#1A73E8", 0.12),
-    dark: alpha("#1A73E8", 0.8),
+    main: "#647eec",
+    light: alpha("#647eec", 0.12),
+    dark: alpha("#647eec", 0.8),
     contrastText: "#FFFFFF",
   },
   error: {
@@ -27,19 +27,21 @@ const darkThemeColors = {
     contrastText: "#FFFFFF",
   },
   background: {
-    default: "#131A22",
-    paper: "#1B2631",
+    default: "#141825",
+    paper: "#252936",
   },
   text: {
     primary: "#FFFFFF",
     secondary: "#A0AEC0",
   },
   action: {
-    hover: alpha("#2A3E50", 0.8),
-    selected: alpha("#2CCB70", 0.12),
+    hover: alpha("#2A3E50", 0.6),
+    selected: alpha("#2A3E50", 0.8),
     disabled: alpha("#A0AEC0", 0.3),
     disabledBackground: alpha("#A0AEC0", 0.12),
+    focus: alpha("#2A3E50", 0.12),
   },
+  divider: alpha("#FFFFFF", 0.06),
 };
 
 export const getTheme = (mode: "light" | "dark") =>
@@ -78,7 +80,8 @@ export const getTheme = (mode: "light" | "dark") =>
         styleOverrides: {
           body: {
             backgroundColor: darkThemeColors.background.default,
-            backgroundImage: "linear-gradient(145deg, #131A22 0%, #1B2631 100%)",
+            // backgroundImage: (theme: Theme) => 
+            //   `linear-gradient(145deg, ${theme.palette.background.default} 0%, ${alpha(theme.palette.background.paper, 0.8)} 100%)`,
           },
         },
       },
@@ -86,9 +89,9 @@ export const getTheme = (mode: "light" | "dark") =>
         styleOverrides: {
           root: {
             background: mode === "dark" ? darkThemeColors.background.paper : undefined,
-            border: mode === "dark" ? `1px solid ${alpha("#FFFFFF", 0.06)}` : undefined,
+            border: mode === "dark" ? `1px solid ${darkThemeColors.divider}` : undefined,
             borderRadius: 16,
-            boxShadow: mode === "dark" ? "0 4px 24px rgba(0, 0, 0, 0.2)" : undefined,
+            boxShadow: mode === "dark" ? `0 4px 24px ${alpha("#000000", 0.2)}` : undefined,
           },
         },
       },
@@ -112,7 +115,7 @@ export const getTheme = (mode: "light" | "dark") =>
             borderWidth: 1,
             "&:hover": {
               borderWidth: 1,
-              background: mode === "dark" ? alpha("#2A3E50", 0.8) : undefined,
+              background: mode === "dark" ? darkThemeColors.action.hover : undefined,
             },
           },
         },
@@ -121,10 +124,10 @@ export const getTheme = (mode: "light" | "dark") =>
         styleOverrides: {
           root: {
             padding: 8,
-            background: mode === "dark" ? alpha("#2A3E50", 0.6) : undefined,
+            background: mode === "dark" ? darkThemeColors.action.hover : undefined,
             transition: "all 0.2s ease-in-out",
             "&:hover": {
-              background: mode === "dark" ? alpha("#2A3E50", 0.8) : undefined,
+              background: mode === "dark" ? darkThemeColors.action.selected : undefined,
               transform: "scale(1.1)",
             },
           },
@@ -138,7 +141,7 @@ export const getTheme = (mode: "light" | "dark") =>
           root: {
             borderRadius: 4,
             height: 8,
-            backgroundColor: mode === "dark" ? alpha("#FFFFFF", 0.05) : undefined,
+            backgroundColor: mode === "dark" ? alpha(darkThemeColors.text.primary, 0.05) : undefined,
           },
           bar: {
             borderRadius: 4,
@@ -149,18 +152,17 @@ export const getTheme = (mode: "light" | "dark") =>
       MuiDrawer: {
         styleOverrides: {
           paper: {
-            backgroundColor: mode === "dark" ? darkThemeColors.background.default : undefined,
-            borderRight: mode === "dark" ? `1px solid ${alpha("#FFFFFF", 0.06)}` : undefined,
-            backgroundImage: mode === "dark" ? "linear-gradient(180deg, #131A22 0%, #1B2631 100%)" : undefined,
+            backgroundColor: mode === "dark" ? darkThemeColors.background.paper : undefined,
+            borderRight: mode === "dark" ? `1px solid ${darkThemeColors.divider}` : undefined,
           },
         },
       },
       MuiAppBar: {
         styleOverrides: {
           root: {
-            backgroundColor: mode === "dark" ? alpha("#131A22", 0.95) : undefined,
+            backgroundColor: mode === "dark" ? darkThemeColors.background.default : undefined,
             backdropFilter: "blur(10px)",
-            borderBottom: mode === "dark" ? `1px solid ${alpha("#FFFFFF", 0.06)}` : undefined,
+            borderBottom: mode === "dark" ? `1px solid ${darkThemeColors.divider}` : undefined,
             boxShadow: "none",
           },
         },
@@ -170,7 +172,7 @@ export const getTheme = (mode: "light" | "dark") =>
           paper: {
             backgroundColor: mode === "dark" ? darkThemeColors.background.paper : undefined,
             borderRadius: 16,
-            border: mode === "dark" ? `1px solid ${alpha("#FFFFFF", 0.06)}` : undefined,
+            border: mode === "dark" ? `1px solid ${darkThemeColors.divider}` : undefined,
           },
         },
       },

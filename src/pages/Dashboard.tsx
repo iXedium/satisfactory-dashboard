@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Grid from "@mui/material/Grid";
 import {
   Card,
@@ -13,7 +13,7 @@ import {
   DialogContentText,
   DialogActions,
   Button,
-  Fade,
+  TextField,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
@@ -23,11 +23,15 @@ import ElectricBoltIcon from "@mui/icons-material/ElectricBolt";
 import PrecisionManufacturingIcon from "@mui/icons-material/PrecisionManufacturing";
 import ArrowRightAltIcon from "@mui/icons-material/ArrowRightAlt";
 import db, { addBuild, getBuilds, deleteBuild, Build } from "../db";
+import { alpha } from "@mui/material/styles";
 
 const Dashboard: React.FC = () => {
   const [builds, setBuilds] = useState<Build[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [buildToDelete, setBuildToDelete] = useState<number | null>(null);
+  const [editingBuildId, setEditingBuildId] = useState<number | null>(null);
+  const [editingBuildName, setEditingBuildName] = useState<string>("");
+  const inputRef = useRef<HTMLInputElement | null>(null); // Create a ref for the input
 
   useEffect(() => {
     const fetchBuilds = async () => {
@@ -36,6 +40,10 @@ const Dashboard: React.FC = () => {
     };
     fetchBuilds();
   }, []);
+
+  // useEffect(() => {
+  //   console.log(inputRef.current); // Log the ref value
+  // }, [editingBuildId]); // Log whenever editingBuildId changes
 
   const handleAddBuild = async () => {
     await addBuild(`Build ${builds.length + 1}`, []);
@@ -58,7 +66,27 @@ const Dashboard: React.FC = () => {
       await deleteBuild(buildToDelete);
       const updatedBuilds = await getBuilds();
       setBuilds(updatedBuilds);
-      handleDialogClose();
+      if (dialogOpen) {
+        handleDialogClose();
+      }
+    }
+  };
+
+  const handleDelete = async (id: number, event: React.MouseEvent) => {
+    if (event.shiftKey) {
+      await deleteBuild(id);
+      const updatedBuilds = await getBuilds();
+      setBuilds(updatedBuilds);
+    } else {
+      handleDialogOpen(id);
+    }
+  };
+
+  const confirmEdit = async (id: number) => {
+    if (id !== null) {
+      await db.builds.update(id, { name: editingBuildName });
+      const updatedBuilds = await getBuilds();
+      setBuilds(updatedBuilds);
     }
   };
 
@@ -71,11 +99,13 @@ const Dashboard: React.FC = () => {
             sx={{
               width: 280,
               minHeight: 220,
+              height: "100%",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: "rgba(27, 38, 49, 0.4)",
-              border: "1px dashed rgba(255, 255, 255, 0.1)",
+              background: (theme) => theme.palette.background.paper,
+              border: (theme) =>
+                `1.5px dashed ${alpha(theme.palette.text.primary, 0.3)}`,
               cursor: "pointer",
               transition: "all 0.2s ease-in-out",
               "&:hover": {
@@ -94,15 +124,16 @@ const Dashboard: React.FC = () => {
                 width: 48,
                 height: 48,
                 borderRadius: "50%",
-                border: "1px solid rgba(255, 255, 255, 0.2)",
+                border: (theme) =>
+                  `1.5px solid ${alpha(theme.palette.text.primary, 0.3)}`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 transition: "all 0.2s ease-in-out",
-                color: "rgba(255, 255, 255, 0.3)",
+                color: (theme) => alpha(theme.palette.text.primary, 0.3),
               }}
             >
-              <AddIcon sx={{ fontSize: 24 }} />
+              <AddIcon sx={{ fontSize: 32 }} />
             </Box>
           </Card>
         </Grid>
@@ -140,58 +171,123 @@ const Dashboard: React.FC = () => {
                   zIndex: 1,
                 }}
               >
-                <IconButton
+                {/* <IconButton
                   size="small"
-                  onClick={() => {/* Handle edit */}}
-                  sx={{ 
+                  onClick={() => {
+                    setEditingBuildId(build.id!);
+                    setEditingBuildName(build.name);
+                  }}
+                  sx={{
                     color: "text.secondary",
-                    background: "rgba(42, 62, 80, 0.6)",
+                    bgcolor: "action.hover",
                     backdropFilter: "blur(8px)",
                     "&:hover": {
                       color: "secondary.main",
-                      background: "rgba(42, 62, 80, 0.8)",
-                    }
+                      bgcolor: "action.selected",
+                    },
                   }}
                 >
                   <EditIcon fontSize="small" />
-                </IconButton>
+                </IconButton> */}
                 <IconButton
                   size="small"
-                  onClick={() => handleDialogOpen(build.id!)}
-                  sx={{ 
+                  onClick={(event) => handleDelete(build.id!, event)}
+                  sx={{
                     color: "text.secondary",
-                    background: "rgba(42, 62, 80, 0.6)",
+                    bgcolor: "action.hover",
                     backdropFilter: "blur(8px)",
                     "&:hover": {
                       color: "error.main",
-                      background: "rgba(42, 62, 80, 0.8)",
-                    }
+                      bgcolor: "action.selected",
+                    },
                   }}
                 >
                   <DeleteIcon fontSize="small" />
                 </IconButton>
               </Box>
-              
+
               <CardContent sx={{ p: 2.5 }}>
                 <Typography variant="h6" gutterBottom>
-                  {build.name}
+                  {editingBuildId === build.id ? (
+                    <TextField
+                      size="small" // Make the TextField smaller
+                      inputRef={inputRef}
+                      sx={{
+                        "& .MuiInputBase-root": {
+                          height: "30px", // Set a specific height
+                        },
+                        "& .MuiOutlinedInput-notchedOutline": {
+                          borderRadius: "4px", // Optional: adjust border radius
+                        },
+                      }}
+                      value={editingBuildName}
+                      onChange={(e) => setEditingBuildName(e.target.value)}
+                      onFocus={() => {
+                        setTimeout(() => {
+                          console.log("inputRef.current", inputRef.current);
+                          if (inputRef.current) {
+                            inputRef.current.select(); // Select the text when focused
+                          }
+                        }, 0); // Delay selection to the next event loop
+                      }} // Select the text when the input is focused
+                      onBlur={() => {
+                        confirmEdit(build.id!); // Call confirmEdit on blur
+                        setEditingBuildId(null); // Exit editing mode
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          confirmEdit(build.id!); // Call confirmEdit on Enter
+                          setEditingBuildId(null); // Exit editing mode
+                        } else if (e.key === "Escape") {
+                          setEditingBuildId(null); // Exit editing mode
+                        }
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <span
+                      onClick={() => {
+                        setEditingBuildId(build.id!);
+                        setEditingBuildName(build.name);
+                      }}
+                    >
+                      {build.name}
+                    </span>
+                  )}
                 </Typography>
-                
+
                 <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    gutterBottom
+                  >
                     Production Chain
                   </Typography>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                    <SettingsIcon sx={{ color: "primary.main", opacity: 0.8 }} />
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mb: 1,
+                    }}
+                  >
+                    <SettingsIcon sx={{ color: "primary.main" }} />
                     <ArrowRightAltIcon sx={{ color: "text.secondary" }} />
-                    <PrecisionManufacturingIcon sx={{ color: "primary.main", opacity: 0.8 }} />
+                    <PrecisionManufacturingIcon
+                      sx={{ color: "primary.main" }}
+                    />
                     <ArrowRightAltIcon sx={{ color: "text.secondary" }} />
-                    <ElectricBoltIcon sx={{ color: "primary.main", opacity: 0.8 }} />
+                    <ElectricBoltIcon sx={{ color: "primary.main" }} />
                   </Box>
                 </Box>
 
                 <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    gutterBottom
+                  >
                     Efficiency
                   </Typography>
                   <LinearProgress
@@ -199,11 +295,11 @@ const Dashboard: React.FC = () => {
                     value={98}
                     sx={{
                       height: 8,
-                      bgcolor: "rgba(255, 255, 255, 0.05)",
+                      bgcolor: (theme) =>
+                        alpha(theme.palette.text.primary, 0.05),
                       borderRadius: 1,
                       "& .MuiLinearProgress-bar": {
                         bgcolor: "primary.main",
-                        opacity: 0.8,
                         borderRadius: 1,
                       },
                     }}
@@ -211,14 +307,18 @@ const Dashboard: React.FC = () => {
                   <Typography
                     variant="body2"
                     color="primary"
-                    sx={{ mt: 0.5, textAlign: "right", opacity: 0.8 }}
+                    sx={{ mt: 0.5, textAlign: "right" }}
                   >
                     98%
                   </Typography>
                 </Box>
 
                 <Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    gutterBottom
+                  >
                     Production Rate
                   </Typography>
                   <LinearProgress
@@ -226,11 +326,11 @@ const Dashboard: React.FC = () => {
                     value={75}
                     sx={{
                       height: 8,
-                      bgcolor: "rgba(255, 255, 255, 0.05)",
+                      bgcolor: (theme) =>
+                        alpha(theme.palette.text.primary, 0.05),
                       borderRadius: 1,
                       "& .MuiLinearProgress-bar": {
                         bgcolor: "secondary.main",
-                        opacity: 0.8,
                         borderRadius: 1,
                       },
                     }}
@@ -238,7 +338,7 @@ const Dashboard: React.FC = () => {
                   <Typography
                     variant="body2"
                     color="secondary"
-                    sx={{ mt: 0.5, textAlign: "right", opacity: 0.8 }}
+                    sx={{ mt: 0.5, textAlign: "right" }}
                   >
                     45/min
                   </Typography>
@@ -255,15 +355,17 @@ const Dashboard: React.FC = () => {
         PaperProps={{
           sx: {
             borderRadius: 3,
-            background: "#1B2631",
-            border: "1px solid rgba(255, 255, 255, 0.06)",
+            bgcolor: "background.paper",
+            border: (theme) =>
+              `1px solid ${alpha(theme.palette.text.primary, 0.06)}`,
           },
         }}
       >
         <DialogTitle>Delete Build</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ color: "text.secondary" }}>
-            Are you sure you want to delete this build? This action cannot be undone.
+            Are you sure you want to delete this build? This action cannot be
+            undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ p: 2.5 }}>
