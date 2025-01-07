@@ -1,4 +1,4 @@
-import { RichTreeView, TreeItem2 } from "@mui/x-tree-view";
+import { TreeItem2 } from "@mui/x-tree-view/TreeItem2";
 import {
   Box,
   Typography,
@@ -11,6 +11,11 @@ import {
   Paper,
   IconButton,
   Collapse,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemButton,
+  ListItemIcon,
 } from "@mui/material";
 import { ExpandLess, ExpandMore } from "@mui/icons-material";
 import { useState, useEffect } from "react";
@@ -23,6 +28,9 @@ const ProductionPlanner = () => {
   const [selectedRecipeId, setSelectedRecipeId] = useState("");
   const [productionRate, setProductionRate] = useState(1);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
+  const [expandedNodes, setExpandedNodes] = useState<string[]>([]);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
 
   // Fetch items on component mount
   useEffect(() => {
@@ -47,28 +55,61 @@ const ProductionPlanner = () => {
     loadRecipes();
   }, [selectedItemId]);
 
+  
+
   const handleAddToChain = () => {
     if (selectedItemId && selectedRecipeId && productionRate > 0) {
+      const selectedRecipe = recipes.find(recipe => recipe.id === selectedRecipeId);
+      if (selectedRecipe) {
+        setExpandedNodes([selectedRecipe.id]);
+      }
       console.log({
         selectedItem: items.find(item => item.id === selectedItemId),
-        selectedRecipe: recipes.find(recipe => recipe.id === selectedRecipeId),
+        selectedRecipe,
         productionRate
       });
     }
   };
 
-  const treeItems = [
-    {
-      id: "1",
-      label: "Iron Production",
-      children: [
-        {
-          id: "2",
-          label: "Iron Ingot",
-        },
-      ],
-    },
-  ];
+//   const getItemName = (itemId: string) => {
+//     return items.find(item => item.id === itemId)?.name || itemId;
+//   };
+const getItemName = (id: string): string => {
+  const itemNames: Record<string, string> = {
+    "magnetic-field-generator": "Magnetic Field Generator",
+    "neural-quantum-processor": "Neural Quantum Processor",
+    "superposition-oscillator": "Superposition Oscillator",
+    "excited-photonic-matter": "Excited Photonic Matter",
+    "ai-expansion-server": "AI Expansion Server",
+    "dark-matter-residue": "Dark Matter Residue",
+  };
+  return itemNames[id] || id;
+};
+
+
+
+//   const selectedRecipe = recipes.find(recipe => recipe.id === selectedRecipeId);
+
+  const selectedRecipe = {
+    id: "ai-expansion-server",
+    name: "AI Expansion Server",
+    time: 15,
+    inputs: [
+      { id: "magnetic-field-generator", quantity: 1 },
+      { id: "neural-quantum-processor", quantity: 1 },
+      { id: "superposition-oscillator", quantity: 1 },
+      { id: "excited-photonic-matter", quantity: 25 },
+    ],
+    outputs: [
+      { id: "ai-expansion-server", quantity: 1 },
+      { id: "dark-matter-residue", quantity: 25 },
+    ],
+  };
+
+  const handleToggle = (nodeId: string) => {
+    setExpanded((prev) => ({ ...prev, [nodeId]: !prev[nodeId] }));
+  };
+
 
   return (
     <Box sx={{ p: 3 }}>
@@ -76,10 +117,10 @@ const ProductionPlanner = () => {
         Production Planner
       </Typography>
 
-      <Paper 
-        sx={{ 
-          p: 2, 
-          mb: 3, 
+      <Paper
+        sx={{
+          p: 2,
+          mb: 3,
           bgcolor: "background.paper",
           borderRadius: 1,
         }}
@@ -130,7 +171,9 @@ const ProductionPlanner = () => {
               label="Production Rate"
               type="number"
               value={productionRate}
-              onChange={(e) => setProductionRate(Math.max(1, Number(e.target.value)))}
+              onChange={(e) =>
+                setProductionRate(Math.max(1, Number(e.target.value)))
+              }
               inputProps={{ min: 1 }}
               sx={{ width: 150 }}
             />
@@ -138,7 +181,9 @@ const ProductionPlanner = () => {
             <Button
               variant="contained"
               onClick={handleAddToChain}
-              disabled={!selectedItemId || !selectedRecipeId || productionRate < 1}
+              disabled={
+                !selectedItemId || !selectedRecipeId || productionRate < 1
+              }
             >
               Add to Chain
             </Button>
@@ -146,21 +191,98 @@ const ProductionPlanner = () => {
         </Collapse>
       </Paper>
 
-      <RichTreeView
-        aria-label="production chain tree"
-        defaultExpandedItems={["1"]}
-        items={treeItems}
+      <Box
         sx={{
-          height: 400,
-          maxWidth: 400,
-          overflowY: "auto",
-          flexGrow: 1,
+          border: "1px solid #ccc",
+          padding: 2,
+          borderRadius: 2,
+          maxWidth: 600,
         }}
       >
-        <TreeItem2 itemId="1" label="Iron Production">
-          <TreeItem2 itemId="2" label="Iron Ingot" />
-        </TreeItem2>
-      </RichTreeView>
+        <Typography variant="h6" gutterBottom>
+          Production Chain
+        </Typography>
+        <List>
+          {/* Root Node */}
+          <ListItem
+            component="button" // Define the underlying element as a button
+            onClick={() => handleToggle("root")}
+            sx={{
+              textAlign: "left", // Ensure text alignment for button
+              width: "100%", // Make button full-width for better appearance
+              border: "none", // Remove default border
+              background: "none", // Ensure no background
+              padding: "8px 16px", // Adjust padding
+            }}
+          >
+            <ListItemText
+              primary={`${selectedRecipe.name} (Time: ${selectedRecipe.time}s)`}
+            />
+          </ListItem>
+
+          <Collapse in={!!expanded["root"]} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              {/* Inputs Section */}
+              <ListItem
+                component="button" // Make the input/output section clickable
+                onClick={() => handleToggle("inputs")}
+                sx={{
+                  textAlign: "left",
+                  width: "100%",
+                  border: "none",
+                  background: "none",
+                  padding: "8px 16px",
+                }}
+              >
+                <ListItemText primary="Inputs" />
+              </ListItem>
+
+              <Collapse in={!!expanded["inputs"]} timeout="auto" unmountOnExit>
+                <List component="div" disablePadding>
+                  {selectedRecipe.inputs.map((input) => (
+                    <ListItem key={input.id} sx={{ pl: 4 }}>
+                      <ListItemText
+                        primary={`${getItemName(input.id)} (x${
+                          input.quantity
+                        })`}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Collapse>
+
+              {/* Outputs Section */}
+              <ListItem
+                component="button" // Make the input/output section clickable
+                onClick={() => handleToggle("inputs")}
+                sx={{
+                  textAlign: "left",
+                  width: "100%",
+                  border: "none",
+                  background: "none",
+                  padding: "8px 16px",
+                }}
+              >
+                <ListItemText primary="Outputs" />
+              </ListItem>
+
+              <Collapse in={!!expanded["outputs"]} timeout="auto" unmountOnExit>
+                <List component="div" disablePadding>
+                  {selectedRecipe.outputs.map((output) => (
+                    <ListItem key={output.id} sx={{ pl: 4 }}>
+                      <ListItemText
+                        primary={`${getItemName(output.id)} (x${
+                          output.quantity
+                        })`}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Collapse>
+            </List>
+          </Collapse>
+        </List>
+      </Box>
     </Box>
   );
 };
