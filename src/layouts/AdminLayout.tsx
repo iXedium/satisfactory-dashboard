@@ -32,6 +32,7 @@ import ExpandMore from "@mui/icons-material/ExpandMore";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import MenuOpenIcon from "@mui/icons-material/MenuOpen";
 import { Link, useLocation } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -126,23 +127,32 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const renderNavItems = (items: NavItem[], groupTitle?: string) => {
     return (
       <>
-        {groupTitle && isOpen && (
-          <Typography
-            variant="caption"
-            sx={{
-              px: 2,
-              py: 1,
-              color: "text.secondary",
-              display: "block",
-              fontWeight: 500,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {groupTitle}
-          </Typography>
-        )}
+        <AnimatePresence mode="sync">
+          {groupTitle && isOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+            >
+              <Typography
+                variant="caption"
+                sx={{
+                  px: 2,
+                  py: 1,
+                  color: "text.secondary",
+                  display: "block",
+                  fontWeight: 500,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {groupTitle}
+              </Typography>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {items.map((item) => (
           <React.Fragment key={item.path}>
             <Tooltip
@@ -155,44 +165,64 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                 component={item.children ? "div" : Link}
                 to={item.children ? undefined : item.path}
                 onClick={
-                  item.children
-                    ? () => handleSubMenuClick(item.path)
-                    : undefined
+                  item.children ? () => handleSubMenuClick(item.path) : undefined
                 }
                 selected={isCurrentRoute(item.path)}
                 sx={{
                   minHeight: 44,
-                  px: isOpen ? 2 : 1,
+                  px: 1,
                   py: "6px",
                   borderRadius: 1,
                   mb: 0.5,
                   justifyContent: "flex-start",
-                  transition: "background-color 0.3s, padding 0.3s ease",
+                  transition: theme.transitions.create(
+                    ["background-color", "padding"],
+                    {
+                      duration: theme.transitions.duration.standard,
+                    }
+                  ),
                   "&.Mui-selected": {
                     bgcolor: "action.selected",
                   },
                   "& .MuiListItemIcon-root": {
                     minWidth: 0,
                     mr: isOpen ? 2 : 0,
+                    transition: theme.transitions.create("margin", {
+                      duration: theme.transitions.duration.standard,
+                    }),
                     color: isCurrentRoute(item.path)
                       ? "primary.main"
                       : "text.secondary",
                   },
                 }}
               >
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                {isOpen && (
+                <motion.div
+                  layout
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    width: "100%",
+                  }}
+                >
+                  <ListItemIcon>{item.icon}</ListItemIcon>
                   <Box
                     sx={{
                       minWidth: 0,
                       flex: 1,
+                      display: "flex",
+                      alignItems: "center",
                       overflow: "hidden",
+                      opacity: isOpen ? 1 : 0,
+                      transition: theme.transitions.create("opacity", {
+                        duration: theme.transitions.duration.standard,
+                      }),
                     }}
                   >
                     <ListItemText
                       primary={item.title}
                       sx={{
                         m: 0,
+                        flex: 1,
                         "& .MuiTypography-root": {
                           color: isCurrentRoute(item.path)
                             ? "primary.main"
@@ -205,7 +235,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                       }}
                     />
                     {item.children && (
-                      <Box component="span" sx={{ ml: "auto" }}>
+                      <Box
+                        component="span"
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          ml: 1,
+                        }}
+                      >
                         {openSubMenus[item.path] ? (
                           <ExpandLess />
                         ) : (
@@ -214,7 +251,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                       </Box>
                     )}
                   </Box>
-                )}
+                </motion.div>
               </ListItemButton>
             </Tooltip>
             {item.children && (
@@ -238,31 +275,44 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                         selected={isCurrentRoute(child.path)}
                         sx={{
                           minHeight: 36,
-                          px: isOpen ? 4 : "14px",
+                          px: 4,
                           py: "4px",
                           borderRadius: 1,
                           mb: 0.5,
-                          justifyContent: isOpen ? "initial" : "center",
+                          justifyContent: "flex-start",
                           "&.Mui-selected": {
                             bgcolor: "action.selected",
                           },
                           "& .MuiListItemIcon-root": {
                             minWidth: 0,
                             mr: isOpen ? 2 : 0,
-                            transition: "margin-right 0.3s ease",
+                            transition: theme.transitions.create("margin", {
+                              duration: theme.transitions.duration.standard,
+                            }),
                             color: isCurrentRoute(child.path)
                               ? "primary.main"
                               : "text.secondary",
                           },
                         }}
                       >
-                        <ListItemIcon>{child.icon}</ListItemIcon>
-                        {isOpen && (
+                        <motion.div
+                          layout
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            width: "100%",
+                          }}
+                        >
+                          <ListItemIcon>{child.icon}</ListItemIcon>
                           <Box
                             sx={{
                               minWidth: 0,
                               flex: 1,
                               overflow: "hidden",
+                              opacity: isOpen ? 1 : 0,
+                              transition: theme.transitions.create("opacity", {
+                                duration: theme.transitions.duration.standard,
+                              }),
                             }}
                           >
                             <ListItemText
@@ -273,9 +323,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                                   color: isCurrentRoute(child.path)
                                     ? "primary.main"
                                     : "text.primary",
-                                  fontWeight: isCurrentRoute(child.path)
-                                    ? 600
-                                    : 400,
+                                  fontWeight: isCurrentRoute(child.path) ? 600 : 400,
                                   whiteSpace: "nowrap",
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
@@ -283,7 +331,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                               }}
                             />
                           </Box>
-                        )}
+                        </motion.div>
                       </ListItemButton>
                     </Tooltip>
                   ))}
