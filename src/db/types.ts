@@ -21,3 +21,13 @@ export interface DataJson {
   items: Item[];
   recipes: Recipe[];
 }
+
+export interface ProductionNode {
+  id: string; // Unique identifier
+  recipeId: string; // The ID of the recipe associated with this node
+  name: string; // Name of the node (e.g., the item being produced)
+  producerType: string; // The type of machine producing this node
+  producerCount: number; // Number of machines producing this node
+  isByproduct: boolean; // Whether this node is a byproduct
+}
+

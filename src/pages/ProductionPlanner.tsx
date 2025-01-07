@@ -1,4 +1,4 @@
-import { TreeItem2 } from "@mui/x-tree-view/TreeItem2";
+import ProductionNode from "../components/ProductionNode";
 import {
   Box,
   Typography,
@@ -286,5 +286,34 @@ const getItemName = (id: string): string => {
     </Box>
   );
 };
+// const ProductionPlanner = () => {
+//   const sampleNode = {
+//     id: "node-001",
+//     recipeId: "ai-expansion-server",
+//     name: "AI Expansion Server",
+//     producerType: "Quantum Encoder",
+//     producerCount: 2,
+//     isByproduct: false,
+//   };
+
+//   return (
+//     <Box sx={{ padding: 3 }}>
+//       <Typography variant="h4" gutterBottom>
+//         Production Planner
+//       </Typography>
+
+//       {/* Production Node */}
+//       <ProductionNode
+//         id={sampleNode.id}
+//         recipeId={sampleNode.recipeId}
+//         name={sampleNode.name}
+//         producerType={sampleNode.producerType}
+//         producerCount={sampleNode.producerCount}
+//         isByproduct={sampleNode.isByproduct}
+//       />
+//     </Box>
+//   );
+// };
+
 
 export default ProductionPlanner;
