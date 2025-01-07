@@ -1,319 +1,158 @@
-import ProductionNode from "../components/ProductionNode";
+// Filename: src/pages/ProductionPlanner.tsx
+
+import React, { FC, useEffect, useState } from "react";
 import {
   Box,
   Typography,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  TextField,
   Button,
-  Paper,
-  IconButton,
-  Collapse,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemButton,
-  ListItemIcon,
+  TextField,
+  MenuItem,
+  Grid,
 } from "@mui/material";
-import { ExpandLess, ExpandMore } from "@mui/icons-material";
-import { useState, useEffect } from "react";
-import db, { Item, Recipe } from "../db";
+import ProductionNode from "../components/ProductionNode";
+import { Item, Recipe } from "../db/types"; // Adjust the import path as necessary
 
-const ProductionPlanner = () => {
-  const [items, setItems] = useState<Item[]>([]);
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [selectedItemId, setSelectedItemId] = useState("");
-  const [selectedRecipeId, setSelectedRecipeId] = useState("");
+interface ProductionPlannerProps {
+  items: Item[]; // Array of items
+  recipes: Recipe[]; // Array of recipes
+}
+
+const ProductionPlanner: FC<ProductionPlannerProps> = ({
+  items = [],
+  recipes = [],
+}) => {
+  const [selectedItem, setSelectedItem] = useState("");
+  const [selectedRecipe, setSelectedRecipe] = useState("");
   const [productionRate, setProductionRate] = useState(1);
-  const [isPanelOpen, setIsPanelOpen] = useState(true);
-  const [expandedNodes, setExpandedNodes] = useState<string[]>([]);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-
-
-  // Fetch items on component mount
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
-    const loadItems = async () => {
-      const itemList = await db.items.toArray();
-      setItems(itemList);
+    // Simulate fetching data
+    const fetchData = async () => {
+      setLoading(true);
+      // Fetch items and recipes
+      setLoading(false);
     };
-    loadItems();
+    fetchData();
   }, []);
 
-  // Fetch recipes when an item is selected
-  useEffect(() => {
-    const loadRecipes = async () => {
-      if (selectedItemId) {
-        const recipeList = await db.recipes.where("itemId").equals(selectedItemId).toArray();
-        setRecipes(recipeList);
-        setSelectedRecipeId(""); // Reset recipe selection
-      } else {
-        setRecipes([]);
-      }
-    };
-    loadRecipes();
-  }, [selectedItemId]);
+  const [nodes, setNodes] = useState<
+    {
+      id: string;
+      recipeId: string;
+      name: string;
+      producerType: string;
+      producerCount: number;
+      isByproduct: boolean;
+    }[]
+  >([]);
 
-  
+  const handleAddNode = () => {
+    const item = items.find((i) => i.id === selectedItem);
+    const recipe = recipes.find((r) => r.id === selectedRecipe);
 
-  const handleAddToChain = () => {
-    if (selectedItemId && selectedRecipeId && productionRate > 0) {
-      const selectedRecipe = recipes.find(recipe => recipe.id === selectedRecipeId);
-      if (selectedRecipe) {
-        setExpandedNodes([selectedRecipe.id]);
-      }
-      console.log({
-        selectedItem: items.find(item => item.id === selectedItemId),
-        selectedRecipe,
-        productionRate
-      });
+    if (!item || !recipe || productionRate <= 0) {
+      alert("Please select valid inputs and set a production rate.");
+      return;
     }
+
+    const newNode = {
+      id: `${recipe.id}-${nodes.length}`,
+      recipeId: recipe.id,
+      name: recipe.name,
+      producerType: recipe.producers[0], // Assuming the first producer type
+      producerCount: productionRate,
+      isByproduct: false,
+    };
+
+    setNodes((prevNodes) => [...prevNodes, newNode]);
   };
-
-//   const getItemName = (itemId: string) => {
-//     return items.find(item => item.id === itemId)?.name || itemId;
-//   };
-const getItemName = (id: string): string => {
-  const itemNames: Record<string, string> = {
-    "magnetic-field-generator": "Magnetic Field Generator",
-    "neural-quantum-processor": "Neural Quantum Processor",
-    "superposition-oscillator": "Superposition Oscillator",
-    "excited-photonic-matter": "Excited Photonic Matter",
-    "ai-expansion-server": "AI Expansion Server",
-    "dark-matter-residue": "Dark Matter Residue",
-  };
-  return itemNames[id] || id;
-};
-
-
-
-//   const selectedRecipe = recipes.find(recipe => recipe.id === selectedRecipeId);
-
-  const selectedRecipe = {
-    id: "ai-expansion-server",
-    name: "AI Expansion Server",
-    time: 15,
-    inputs: [
-      { id: "magnetic-field-generator", quantity: 1 },
-      { id: "neural-quantum-processor", quantity: 1 },
-      { id: "superposition-oscillator", quantity: 1 },
-      { id: "excited-photonic-matter", quantity: 25 },
-    ],
-    outputs: [
-      { id: "ai-expansion-server", quantity: 1 },
-      { id: "dark-matter-residue", quantity: 25 },
-    ],
-  };
-
-  const handleToggle = (nodeId: string) => {
-    setExpanded((prev) => ({ ...prev, [nodeId]: !prev[nodeId] }));
-  };
+  
+  if (loading) {
+    return <Typography>Loading...</Typography>;
+  }
 
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>
+    <Box sx={{ padding: 3 }}>
+      <Typography variant="h4" gutterBottom>
         Production Planner
       </Typography>
 
-      <Paper
-        sx={{
-          p: 2,
-          mb: 3,
-          bgcolor: "background.paper",
-          borderRadius: 1,
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Add Production Chain
-          </Typography>
-          <IconButton onClick={() => setIsPanelOpen(!isPanelOpen)}>
-            {isPanelOpen ? <ExpandLess /> : <ExpandMore />}
-          </IconButton>
-        </Box>
-
-        <Collapse in={isPanelOpen}>
-          <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-            <FormControl sx={{ minWidth: 200 }}>
-              <InputLabel>Select Item</InputLabel>
-              <Select
-                value={selectedItemId}
-                label="Select Item"
-                onChange={(e) => setSelectedItemId(e.target.value)}
-              >
-                {items.map((item) => (
-                  <MenuItem key={item.id} value={item.id}>
-                    {item.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl sx={{ minWidth: 200 }}>
-              <InputLabel>Select Recipe</InputLabel>
-              <Select
-                value={selectedRecipeId}
-                label="Select Recipe"
-                onChange={(e) => setSelectedRecipeId(e.target.value)}
-                disabled={!selectedItemId}
-              >
-                {recipes.map((recipe) => (
-                  <MenuItem key={recipe.id} value={recipe.id}>
-                    {`${recipe.name} - ${recipe.time}s`}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
+      {/* Add Production Chain Panel */}
+      <Box sx={{ mb: 4, border: "1px solid", padding: 2, borderRadius: 2 }}>
+        <Grid container spacing={2}>
+          {/* Item Selection */}
+          <Grid item xs={4}>
             <TextField
-              label="Production Rate"
-              type="number"
-              value={productionRate}
-              onChange={(e) =>
-                setProductionRate(Math.max(1, Number(e.target.value)))
-              }
-              inputProps={{ min: 1 }}
-              sx={{ width: 150 }}
-            />
-
-            <Button
-              variant="contained"
-              onClick={handleAddToChain}
-              disabled={
-                !selectedItemId || !selectedRecipeId || productionRate < 1
-              }
+              select
+              label="Select Item"
+              value={selectedItem}
+              onChange={(e) => setSelectedItem(e.target.value)}
+              fullWidth
             >
+              {items?.map((item: Item) => (
+                <MenuItem key={item.id} value={item.id}>
+                  {item.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+
+          {/* Recipe Selection */}
+          <Grid item xs={4}>
+            <TextField
+              select
+              label="Select Recipe"
+              value={selectedRecipe}
+              onChange={(e) => setSelectedRecipe(e.target.value)}
+              fullWidth
+            >
+              {recipes
+                .filter((r) => r.itemId === selectedItem)
+                .map((recipe) => (
+                  <MenuItem key={recipe.id} value={recipe.id}>
+                    {recipe.name}
+                  </MenuItem>
+                ))}
+            </TextField>
+          </Grid>
+
+          {/* Production Rate */}
+          <Grid item xs={2}>
+            <TextField
+              type="number"
+              label="Production Rate"
+              value={productionRate}
+              onChange={(e) => setProductionRate(Number(e.target.value))}
+              fullWidth
+            />
+          </Grid>
+
+          {/* Add to Chain Button */}
+          <Grid item xs={2}>
+            <Button variant="contained" onClick={handleAddNode} fullWidth>
               Add to Chain
             </Button>
-          </Box>
-        </Collapse>
-      </Paper>
+          </Grid>
+        </Grid>
+      </Box>
 
-      <Box
-        sx={{
-          border: "1px solid #ccc",
-          padding: 2,
-          borderRadius: 2,
-          maxWidth: 600,
-        }}
-      >
-        <Typography variant="h6" gutterBottom>
-          Production Chain
-        </Typography>
-        <List>
-          {/* Root Node */}
-          <ListItem
-            component="button" // Define the underlying element as a button
-            onClick={() => handleToggle("root")}
-            sx={{
-              textAlign: "left", // Ensure text alignment for button
-              width: "100%", // Make button full-width for better appearance
-              border: "none", // Remove default border
-              background: "none", // Ensure no background
-              padding: "8px 16px", // Adjust padding
-            }}
-          >
-            <ListItemText
-              primary={`${selectedRecipe.name} (Time: ${selectedRecipe.time}s)`}
-            />
-          </ListItem>
-
-          <Collapse in={!!expanded["root"]} timeout="auto" unmountOnExit>
-            <List component="div" disablePadding>
-              {/* Inputs Section */}
-              <ListItem
-                component="button" // Make the input/output section clickable
-                onClick={() => handleToggle("inputs")}
-                sx={{
-                  textAlign: "left",
-                  width: "100%",
-                  border: "none",
-                  background: "none",
-                  padding: "8px 16px",
-                }}
-              >
-                <ListItemText primary="Inputs" />
-              </ListItem>
-
-              <Collapse in={!!expanded["inputs"]} timeout="auto" unmountOnExit>
-                <List component="div" disablePadding>
-                  {selectedRecipe.inputs.map((input) => (
-                    <ListItem key={input.id} sx={{ pl: 4 }}>
-                      <ListItemText
-                        primary={`${getItemName(input.id)} (x${
-                          input.quantity
-                        })`}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              </Collapse>
-
-              {/* Outputs Section */}
-              <ListItem
-                component="button" // Make the input/output section clickable
-                onClick={() => handleToggle("inputs")}
-                sx={{
-                  textAlign: "left",
-                  width: "100%",
-                  border: "none",
-                  background: "none",
-                  padding: "8px 16px",
-                }}
-              >
-                <ListItemText primary="Outputs" />
-              </ListItem>
-
-              <Collapse in={!!expanded["outputs"]} timeout="auto" unmountOnExit>
-                <List component="div" disablePadding>
-                  {selectedRecipe.outputs.map((output) => (
-                    <ListItem key={output.id} sx={{ pl: 4 }}>
-                      <ListItemText
-                        primary={`${getItemName(output.id)} (x${
-                          output.quantity
-                        })`}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              </Collapse>
-            </List>
-          </Collapse>
-        </List>
+      {/* Render Production Nodes */}
+      <Box>
+        {nodes.map((node) => (
+          <ProductionNode
+            key={node.id}
+            id={node.id}
+            recipeId={node.recipeId}
+            name={node.name}
+            producerType={node.producerType}
+            producerCount={node.producerCount}
+            isByproduct={node.isByproduct}
+          />
+        ))}
       </Box>
     </Box>
   );
 };
-// const ProductionPlanner = () => {
-//   const sampleNode = {
-//     id: "node-001",
-//     recipeId: "ai-expansion-server",
-//     name: "AI Expansion Server",
-//     producerType: "Quantum Encoder",
-//     producerCount: 2,
-//     isByproduct: false,
-//   };
-
-//   return (
-//     <Box sx={{ padding: 3 }}>
-//       <Typography variant="h4" gutterBottom>
-//         Production Planner
-//       </Typography>
-
-//       {/* Production Node */}
-//       <ProductionNode
-//         id={sampleNode.id}
-//         recipeId={sampleNode.recipeId}
-//         name={sampleNode.name}
-//         producerType={sampleNode.producerType}
-//         producerCount={sampleNode.producerCount}
-//         isByproduct={sampleNode.isByproduct}
-//       />
-//     </Box>
-//   );
-// };
-
 
 export default ProductionPlanner;
