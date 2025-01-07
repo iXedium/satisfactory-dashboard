@@ -17,6 +17,7 @@ import {
   useTheme,
   Collapse,
   Divider,
+  Breadcrumbs,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import HomeIcon from "@mui/icons-material/Home";
@@ -28,6 +29,8 @@ import BarChartIcon from "@mui/icons-material/BarChart";
 import ExtensionIcon from "@mui/icons-material/Extension";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import MenuOpenIcon from "@mui/icons-material/MenuOpen";
 import { Link, useLocation } from "react-router-dom";
 
 interface AdminLayoutProps {
@@ -49,6 +52,11 @@ const mainNavItems: NavItem[] = [
     title: "Dashboard",
     path: "/",
     icon: <HomeIcon />,
+  },
+  {
+    title: "Compare Builds",
+    path: "/compare",
+    icon: <CompareArrowsIcon />,
   },
   {
     title: "Orders",
@@ -85,7 +93,9 @@ const analyticsNavItems: NavItem[] = [
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const [isOpen, setIsOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [openSubMenus, setOpenSubMenus] = useState<{ [key: string]: boolean }>({});
+  const [openSubMenus, setOpenSubMenus] = useState<{ [key: string]: boolean }>(
+    {}
+  );
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -107,6 +117,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
   const isCurrentRoute = (path: string) => location.pathname === path;
 
+  const getCurrentPageTitle = () => {
+    const allItems = [...mainNavItems, ...analyticsNavItems];
+    const currentItem = allItems.find((item) => isCurrentRoute(item.path));
+    return currentItem?.title || "";
+  };
+
   const renderNavItems = (items: NavItem[], groupTitle?: string) => {
     return (
       <>
@@ -119,6 +135,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               color: "text.secondary",
               display: "block",
               fontWeight: 500,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
           >
             {groupTitle}
@@ -136,16 +155,19 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                 component={item.children ? "div" : Link}
                 to={item.children ? undefined : item.path}
                 onClick={
-                  item.children ? () => handleSubMenuClick(item.path) : undefined
+                  item.children
+                    ? () => handleSubMenuClick(item.path)
+                    : undefined
                 }
                 selected={isCurrentRoute(item.path)}
                 sx={{
                   minHeight: 44,
-                  px: isOpen ? 2 : "14px",
+                  px: isOpen ? 2 : 1,
                   py: "6px",
                   borderRadius: 1,
                   mb: 0.5,
-                  justifyContent: isOpen ? "initial" : "center",
+                  justifyContent: "flex-start",
+                  transition: "background-color 0.3s, padding 0.3s ease",
                   "&.Mui-selected": {
                     bgcolor: "action.selected",
                   },
@@ -160,14 +182,26 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               >
                 <ListItemIcon>{item.icon}</ListItemIcon>
                 {isOpen && (
-                  <>
+                  <Box
+                    sx={{
+                      minWidth: 0,
+                      flex: 1,
+                      overflow: "hidden",
+                    }}
+                  >
                     <ListItemText
                       primary={item.title}
                       sx={{
-                        opacity: isOpen ? 1 : 0,
-                        color: isCurrentRoute(item.path)
-                          ? "primary.main"
-                          : "text.primary",
+                        m: 0,
+                        "& .MuiTypography-root": {
+                          color: isCurrentRoute(item.path)
+                            ? "primary.main"
+                            : "text.primary",
+                          fontWeight: isCurrentRoute(item.path) ? 600 : 400,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        },
                       }}
                     />
                     {item.children && (
@@ -179,7 +213,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                         )}
                       </Box>
                     )}
-                  </>
+                  </Box>
                 )}
               </ListItemButton>
             </Tooltip>
@@ -215,6 +249,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                           "& .MuiListItemIcon-root": {
                             minWidth: 0,
                             mr: isOpen ? 2 : 0,
+                            transition: "margin-right 0.3s ease",
                             color: isCurrentRoute(child.path)
                               ? "primary.main"
                               : "text.secondary",
@@ -223,15 +258,31 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                       >
                         <ListItemIcon>{child.icon}</ListItemIcon>
                         {isOpen && (
-                          <ListItemText
-                            primary={child.title}
+                          <Box
                             sx={{
-                              opacity: isOpen ? 1 : 0,
-                              color: isCurrentRoute(child.path)
-                                ? "primary.main"
-                                : "text.primary",
+                              minWidth: 0,
+                              flex: 1,
+                              overflow: "hidden",
                             }}
-                          />
+                          >
+                            <ListItemText
+                              primary={child.title}
+                              sx={{
+                                m: 0,
+                                "& .MuiTypography-root": {
+                                  color: isCurrentRoute(child.path)
+                                    ? "primary.main"
+                                    : "text.primary",
+                                  fontWeight: isCurrentRoute(child.path)
+                                    ? 600
+                                    : 400,
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                },
+                              }}
+                            />
+                          </Box>
                         )}
                       </ListItemButton>
                     </Tooltip>
@@ -282,13 +333,31 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         {isOpen && (
           <Box
             sx={{
-              whiteSpace: "nowrap",
+              minWidth: 0,
+              flex: 1,
+              overflow: "hidden",
             }}
           >
-            <Typography variant="subtitle2" sx={{ color: "text.primary" }}>
+            <Typography
+              variant="subtitle2"
+              sx={{
+                color: "text.primary",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
               John Doe
             </Typography>
-            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: "text.secondary",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
               Administrator
             </Typography>
           </Box>
@@ -321,18 +390,37 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               mr: 2,
             }}
           >
-            <MenuIcon />
+            {isOpen ? <MenuOpenIcon /> : <MenuIcon />}
           </IconButton>
 
-          <Typography
-            variant="h6"
-            sx={{
-              fontWeight: 700,
-              color: "text.primary",
-            }}
-          >
-            Satisfactory
-          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                color: "text.primary",
+                mr: 1,
+              }}
+            >
+              Satisfactory
+            </Typography>
+
+            <ChevronRightIcon sx={{ fontSize: 24, ml: 5 }} />
+            {getCurrentPageTitle() && (
+              <Breadcrumbs
+                separator={<ChevronRightIcon sx={{ fontSize: 18 }} />}
+                aria-label="breadcrumb"
+                sx={{ color: "text.secondary" }}
+              >
+                <Typography
+                  variant="body1"
+                  sx={{ color: "text.primary", fontWeight: 400 }}
+                >
+                  {getCurrentPageTitle()}
+                </Typography>
+              </Breadcrumbs>
+            )}
+          </Box>
 
           <Box sx={{ flex: 1 }} />
 
@@ -392,6 +480,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               backgroundColor: "background.paper",
               borderRight: 1,
               borderColor: "divider",
+              mt: "64px",
             },
           }}
         >
@@ -413,6 +502,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                   duration: theme.transitions.duration.enteringScreen,
                 }),
               overflowX: "hidden",
+              mt: "64px",
             },
           }}
           open
@@ -425,8 +515,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         component="main"
         sx={{
           flexGrow: 1,
-          width: { sm: `calc(100% - ${isOpen ? DRAWER_WIDTH : COLLAPSED_DRAWER_WIDTH}px)` },
-          mt: 8,
+          width: {
+            sm: `calc(100% - ${
+              isOpen ? DRAWER_WIDTH : COLLAPSED_DRAWER_WIDTH
+            }px)`,
+          },
+          mt: "64px",
           transition: (theme) =>
             theme.transitions.create("width", {
               easing: theme.transitions.easing.sharp,
