@@ -4,6 +4,9 @@ import AdminLayout from "./layouts/AdminLayout";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import CompareStates from "./pages/CompareStates";
+import ProductionPlanner from "./pages/ProductionPlanner";
+import "./db/populateDatabase";
+
 
 const App: React.FC = () => {
   return (
@@ -13,6 +16,7 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/compare" element={<CompareStates />} />
+            <Route path="/planner" element={<ProductionPlanner />} />
           </Routes>
         </AdminLayout>
       </Router>

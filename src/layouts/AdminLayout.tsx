@@ -27,6 +27,7 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import ExtensionIcon from "@mui/icons-material/Extension";
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
@@ -58,6 +59,11 @@ const mainNavItems: NavItem[] = [
     title: "Compare Builds",
     path: "/compare",
     icon: <CompareArrowsIcon />,
+  },
+  {
+    title: "Production Planner",
+    path: "/planner",
+    icon: <AccountTreeIcon />,
   },
   {
     title: "Orders",
