@@ -1,3 +1,26 @@
+export interface Item {
+  id: string;
+  name: string;
+  category: string;
+  icon?: string;
+  description?: string;
+}
+
+export interface Recipe {
+  id: string;
+  name: string;
+  producerType: string;
+  inputs: {
+    itemId: string;
+    amount: number;
+  }[];
+  outputs: {
+    itemId: string;
+    amount: number;
+  }[];
+  baseCraftTime: number;  // in seconds
+}
+
 export interface ProductionTreeNode {
   id: string;
   recipeId: string;
@@ -9,7 +32,12 @@ export interface ProductionTreeNode {
   };
   producerCount: number;
   isByproduct: boolean;
+  targetRate: number;  // Target production rate in items/minute
+  actualRate: number;  // Actual production rate after calculations
+  excessRate: number; // Additional production rate beyond what's needed
+  efficiency: number;  // Current efficiency/overclock percentage
   inputs?: ProductionTreeNode[];
+  collapsed?: boolean; // For UI tree view state
 }
 
 export interface ProductionRate {
@@ -45,4 +73,16 @@ export interface RateModifier {
   type: 'overclock' | 'underclock' | 'multiplier';
   value: number;
   source?: string;
+}
+
+export interface ProductionChainState {
+  nodes: ProductionTreeNode[];
+  items: { [id: string]: Item };
+  recipes: { [id: string]: Recipe };
+  selectedNodeId?: string;
+}
+
+export interface ProductionAction {
+  type: 'ADD_NODE' | 'REMOVE_NODE' | 'UPDATE_NODE' | 'SET_SELECTED_NODE' | 'TOGGLE_NODE_COLLAPSE' | 'UPDATE_RATES';
+  payload: any;
 }

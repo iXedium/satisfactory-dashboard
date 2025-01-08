@@ -50,6 +50,9 @@
 - Theme context and styling foundation
 - Production planner page with basic tree view
 - Production node component with basic controls
+- TypeScript interfaces for items, recipes, and production nodes
+- Production chain context with rate calculations
+- Basic production node component with efficiency display
 
 ### In Progress
 - Enhanced production node functionality
@@ -57,34 +60,39 @@
   - [x] Tree view implementation
   - [x] Icon support for items and machines
   - [x] Machine multiplier display
-  - [ ] Rate calculations
+  - [x] Rate calculations
+  - [x] Machine efficiency display
   - [ ] Byproduct handling
-  - [ ] Machine efficiency display
   - [ ] Excess production controls
+  - [ ] Recipe selection UI
 
 ### Technical Updates
-- Icons are now loaded from /public/icons/*.webp
-- Items are filtered to exclude machines from selection
-- Machines now display their multiplier (e.g., "Miner (×2)")
-- Database schema updated to support icons and machine multipliers
+- Added comprehensive TypeScript interfaces for items, recipes, and production nodes
+- Implemented production chain context with recursive rate calculations
+- Created reusable ProductionNode component with collapsible tree view
+- Added efficiency color coding (red > 100%, yellow < 100%, green = 100%)
+- Implemented automatic machine count calculation based on target rates
 
 ### Next Steps
 1. Production Chain Logic
-   - Implement rate calculations considering machine multipliers
-   - Add byproduct handling system
-   - Add machine efficiency calculations
-   - Implement excess production tracking
+   - [x] Implement rate calculations considering machine multipliers
+   - [x] Add machine efficiency calculations
+   - [ ] Complete byproduct handling system
+   - [ ] Implement excess production tracking
+   - [ ] Add recipe selection UI
 
 2. UI Enhancements
-   - Add color-coded efficiency display
-   - Implement clipboard copy for efficiency values
-   - Add byproduct visual styling
-   - Enhance node controls UI
+   - [x] Add color-coded efficiency display
+   - [ ] Implement clipboard copy for efficiency values
+   - [ ] Add byproduct visual styling
+   - [ ] Enhance node controls UI
+   - [ ] Add loading states and error handling
 
 3. View Modes
-   - Complete tree view functionality
-   - Implement list (accumulated) view
-   - Create unified node component for both views
+   - [x] Basic tree view functionality
+   - [ ] Complete tree view with all features
+   - [ ] Implement list (accumulated) view
+   - [ ] Create unified node component for both views
 
 ### Technical Notes
 - All rates are calculated in items/minute
