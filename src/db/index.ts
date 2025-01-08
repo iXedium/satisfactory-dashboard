@@ -1,4 +1,5 @@
 import Dexie from "dexie";
+import { Item, Recipe as RecipeType } from "./types";
 
 // Interfaces for existing and new tables
 export interface ProductionChain {
@@ -13,21 +14,9 @@ export interface Build {
   productionChains: ProductionChain[];
 }
 
-export interface Item {
-  id: string;
-  name: string;
-  category: string;
-}
-
-export interface Recipe {
-  id: string;
-  itemId: string;
-  name: string;
-  time: number; // Time to produce in seconds
-  inputs: { id: string; quantity: number }[];
-  outputs: { id: string; quantity: number }[];
-  producers: string[];
-}
+// Fix the type export
+export type { Item };  // Changed from export { Item }
+export interface Recipe extends RecipeType {}
 
 // Database class with new tables
 class AppDatabase extends Dexie {

@@ -16,6 +16,8 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ProductionNode from "../components/ProductionNode";
 import { Item, Recipe } from "../db/types";
 import { getAllItems, getAllRecipes } from "../db/index";
+import { calculateProductionChain } from "../utils/productionCalculator";
+import { ProductionTreeNode } from "../types/productionTypes";
 
 const ProductionPlanner: FC = () => {
   const [items, setItems] = useState<Item[]>([]);
@@ -24,6 +26,8 @@ const ProductionPlanner: FC = () => {
   const [selectedRecipe, setSelectedRecipe] = useState("");
   const [productionRate, setProductionRate] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [nodes, setNodes] = useState<ProductionTreeNode[]>([]); // Moved up
+  const [expandedNodes, setExpandedNodes] = useState<string[]>(['root']);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -43,17 +47,22 @@ const ProductionPlanner: FC = () => {
     fetchData();
   }, []);
 
-  interface ProductionTreeNode {
-    id: string;
-    recipeId: string;
-    name: string;
-    producerType: string;
-    producerCount: number;
-    isByproduct: boolean;
-    inputs?: ProductionTreeNode[];
-  }
+  useEffect(() => {
+    if (nodes.length > 0) {
+      const getAllNodeIds = (node: ProductionTreeNode): string[] => {
+        const ids = [node.id];
+        if (node.inputs) {
+          node.inputs.forEach(input => {
+            ids.push(...getAllNodeIds(input));
+          });
+        }
+        return ids;
+      };
 
-  const [nodes, setNodes] = useState<ProductionTreeNode[]>([]);
+      const allIds = nodes.flatMap(node => getAllNodeIds(node));
+      setExpandedNodes(['root', ...allIds]);
+    }
+  }, [nodes]);
 
   const handleAddNode = () => {
     const item = items.find((i) => i.id === selectedItem);
@@ -64,32 +73,13 @@ const ProductionPlanner: FC = () => {
       return;
     }
 
-    // Calculate input requirements
-    const inputs = recipe.inputs.map(input => {
-      const inputRecipe = recipes.find(r => r.itemId === input.id);
-      if (!inputRecipe) return null;
-      
-      return {
-        id: `${input.id}-${nodes.length}`,
-        recipeId: inputRecipe.id,
-        name: inputRecipe.name,
-        producerType: inputRecipe.producers[0],
-        producerCount: Math.ceil((input.quantity * productionRate) / inputRecipe.outputs[0].quantity),
-        isByproduct: false
-      };
-    }).filter((input): input is ProductionTreeNode => input !== null);
+    const productionChain = calculateProductionChain(
+      recipe,
+      productionRate,
+      recipes
+    );
 
-    const newNode: ProductionTreeNode = {
-      id: `${recipe.id}-${nodes.length}`,
-      recipeId: recipe.id,
-      name: recipe.name,
-      producerType: recipe.producers[0],
-      producerCount: productionRate,
-      isByproduct: false,
-      inputs: inputs
-    };
-
-    setNodes(prev => [...prev, newNode]);
+    setNodes(prev => [...prev, productionChain]);
   };
 
   const handleDeleteNode = (nodeId: string) => {
@@ -124,7 +114,7 @@ const ProductionPlanner: FC = () => {
           id={node.id}
           recipeId={node.recipeId}
           name={node.name}
-          producerType={node.producerType}
+          producerType={node.producerType.type}
           producerCount={node.producerCount}
           isByproduct={node.isByproduct}
           onDelete={handleDeleteNode}
@@ -133,6 +123,8 @@ const ProductionPlanner: FC = () => {
           alternateRecipes={recipes
             .filter(r => r.itemId === node.recipeId)
             .map(r => ({ id: r.id, name: r.name }))}
+          machineIcon={node.producerType.icon}
+          machineMultiplier={node.producerType.multiplier}
         />
       }
     >
@@ -221,7 +213,7 @@ const ProductionPlanner: FC = () => {
       {/* Render Production Nodes */}
       <TreeView
         aria-label="production chain"
-        defaultExpandedItems={['root']}
+        expandedItems={expandedNodes}  // Changed from expanded to expandedItems
         slots={{
           collapseIcon: ExpandMoreIcon,
           expandIcon: ChevronRightIcon
