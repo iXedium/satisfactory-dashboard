@@ -40,48 +40,63 @@
 
 ---
 
-## **Current Tasks**
+# Development Tracker
 
-### **Production Planner**
-#### Overview:
-The Production Planner is a dedicated page linked from the dashboard's build cards. It allows users to:
-1. Add initial items to produce, select recipes, and set production rates.
-2. Dynamically calculate and display dependencies in a tree structure.
+## Current Status (Updated: [current-date])
 
-#### Tasks:
-1. ✅ **Planner Page Setup**:
-   - ✅ Create a new route (`/planner`) and link it to the build cards.
-   - ✅ Build the basic layout with two sections:
-     - ✅ A collapsible panel for adding initial items.
-     - ✅ A main area for displaying the production chain tree.
+### Completed
+- Basic application structure
+- Database setup with Dexie
+- Theme context and styling foundation
+- Production planner page with basic tree view
+- Production node component with basic controls
 
-2. ✅ **Collapsible Section for Initial Items**:
-   - ✅ Create a form to input:
-     - ✅ Item to produce.
-     - ✅ Recipe selection.
-     - ✅ Desired production rate.
-   - ✅ Add a toggle to collapse/expand this section.
+### In Progress
+- Enhanced production node functionality
+  - [x] Basic node structure
+  - [x] Tree view implementation
+  - [x] Icon support for items and machines
+  - [x] Machine multiplier display
+  - [ ] Rate calculations
+  - [ ] Byproduct handling
+  - [ ] Machine efficiency display
+  - [ ] Excess production controls
 
-3. ✅ **Production Chain Tree List**:
-   - ✅ Use Material-UI's TreeView and TreeItem from @mui/lab for displaying the production chain.
-   - ✅ Add nodes for items, recipes, and rates.
-   - ✅ Ensure dependencies update dynamically based on user input.
+### Technical Updates
+- Icons are now loaded from /public/icons/*.webp
+- Items are filtered to exclude machines from selection
+- Machines now display their multiplier (e.g., "Miner (×2)")
+- Database schema updated to support icons and machine multipliers
 
-4. ✅ **Styling and Integration**:
-   - ✅ Adhere to the current dark theme and styling rules.
-   - ✅ Use MUI's grid and system properties (`sx`) for layout and spacing.
+### Next Steps
+1. Production Chain Logic
+   - Implement rate calculations considering machine multipliers
+   - Add byproduct handling system
+   - Add machine efficiency calculations
+   - Implement excess production tracking
 
-5. ✅ **Item and Recipe Integration**:
-   - ✅ Add item selection from game data.
-   - ✅ Add recipe selection from game data.
-   - ✅ Implement dependency calculation.
-   - ✅ Add node editing and deletion.
+2. UI Enhancements
+   - Add color-coded efficiency display
+   - Implement clipboard copy for efficiency values
+   - Add byproduct visual styling
+   - Enhance node controls UI
 
-6. **Next Steps**:
-   - Add node reordering.
-   - Add machine count and efficiency calculations.
-   - Add excess production tracking.
-   - Implement saving and loading builds.
+3. View Modes
+   - Complete tree view functionality
+   - Implement list (accumulated) view
+   - Create unified node component for both views
+
+### Technical Notes
+- All rates are calculated in items/minute
+- Byproducts use negative rates for production
+- Machine overclock is calculated, not input
+- Node component should be flexible for both view modes
+- Theme should be used for all styling decisions
+
+### Questions/Concerns
+- Consider implementing undo/redo functionality
+- Evaluate performance optimization needs
+- Plan for future power consumption tracking
 
 ---
 

@@ -1,6 +1,6 @@
 // Filename: src/pages/ProductionPlanner.tsx
 
-import React, { FC, useEffect, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import {
   Box,
   Typography,
@@ -9,42 +9,51 @@ import {
   MenuItem,
   Grid,
 } from "@mui/material";
+import { TreeView } from '@mui/x-tree-view/TreeView';
+import { TreeItem } from '@mui/x-tree-view/TreeItem';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ProductionNode from "../components/ProductionNode";
-import { Item, Recipe } from "../db/types"; // Adjust the import path as necessary
+import { Item, Recipe } from "../db/types";
+import { getAllItems, getAllRecipes } from "../db/index";
 
-interface ProductionPlannerProps {
-  items: Item[]; // Array of items
-  recipes: Recipe[]; // Array of recipes
-}
-
-const ProductionPlanner: FC<ProductionPlannerProps> = ({
-  items = [],
-  recipes = [],
-}) => {
+const ProductionPlanner: FC = () => {
+  const [items, setItems] = useState<Item[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [selectedItem, setSelectedItem] = useState("");
   const [selectedRecipe, setSelectedRecipe] = useState("");
   const [productionRate, setProductionRate] = useState(1);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    // Simulate fetching data
     const fetchData = async () => {
       setLoading(true);
-      // Fetch items and recipes
+      try {
+        const [itemsData, recipesData] = await Promise.all([
+          getAllItems(),
+          getAllRecipes()
+        ]);
+        setItems(itemsData);
+        setRecipes(recipesData);
+      } catch (error) {
+        console.error("Error loading data:", error);
+      }
       setLoading(false);
     };
     fetchData();
   }, []);
 
-  const [nodes, setNodes] = useState<
-    {
-      id: string;
-      recipeId: string;
-      name: string;
-      producerType: string;
-      producerCount: number;
-      isByproduct: boolean;
-    }[]
-  >([]);
+  interface ProductionTreeNode {
+    id: string;
+    recipeId: string;
+    name: string;
+    producerType: string;
+    producerCount: number;
+    isByproduct: boolean;
+    inputs?: ProductionTreeNode[];
+  }
+
+  const [nodes, setNodes] = useState<ProductionTreeNode[]>([]);
 
   const handleAddNode = () => {
     const item = items.find((i) => i.id === selectedItem);
@@ -55,22 +64,85 @@ const ProductionPlanner: FC<ProductionPlannerProps> = ({
       return;
     }
 
-    const newNode = {
+    // Calculate input requirements
+    const inputs = recipe.inputs.map(input => {
+      const inputRecipe = recipes.find(r => r.itemId === input.id);
+      if (!inputRecipe) return null;
+      
+      return {
+        id: `${input.id}-${nodes.length}`,
+        recipeId: inputRecipe.id,
+        name: inputRecipe.name,
+        producerType: inputRecipe.producers[0],
+        producerCount: Math.ceil((input.quantity * productionRate) / inputRecipe.outputs[0].quantity),
+        isByproduct: false
+      };
+    }).filter((input): input is ProductionTreeNode => input !== null);
+
+    const newNode: ProductionTreeNode = {
       id: `${recipe.id}-${nodes.length}`,
       recipeId: recipe.id,
       name: recipe.name,
-      producerType: recipe.producers[0], // Assuming the first producer type
+      producerType: recipe.producers[0],
       producerCount: productionRate,
       isByproduct: false,
+      inputs: inputs
     };
 
-    setNodes((prevNodes) => [...prevNodes, newNode]);
+    setNodes(prev => [...prev, newNode]);
+  };
+
+  const handleDeleteNode = (nodeId: string) => {
+    setNodes(prev => prev.filter(node => node.id !== nodeId));
+  };
+
+  const handleRateChange = (nodeId: string, newCount: number) => {
+    setNodes(prev => prev.map(node => 
+      node.id === nodeId ? { ...node, producerCount: newCount } : node
+    ));
+  };
+
+  const handleRecipeChange = (nodeId: string, newRecipeId: string) => {
+    const newRecipe = recipes.find(r => r.id === newRecipeId);
+    if (!newRecipe) return;
+
+    setNodes(prev => prev.map(node =>
+      node.id === nodeId ? { ...node, recipeId: newRecipeId, name: newRecipe.name } : node
+    ));
   };
   
   if (loading) {
     return <Typography>Loading...</Typography>;
   }
 
+  const renderTree = (node: ProductionTreeNode) => (
+    <TreeItem
+      key={node.id}
+      itemId={node.id}  // Changed from nodeId to itemId
+      label={
+        <ProductionNode
+          id={node.id}
+          recipeId={node.recipeId}
+          name={node.name}
+          producerType={node.producerType}
+          producerCount={node.producerCount}
+          isByproduct={node.isByproduct}
+          onDelete={handleDeleteNode}
+          onRateChange={handleRateChange}
+          onRecipeChange={handleRecipeChange}
+          alternateRecipes={recipes
+            .filter(r => r.itemId === node.recipeId)
+            .map(r => ({ id: r.id, name: r.name }))}
+        />
+      }
+    >
+      {Array.isArray(node.inputs)
+        ? node.inputs.map((node) => renderTree(node))
+        : null}
+    </TreeItem>
+  );
+
+  const filteredItems = items.filter(item => !item.isMachine);
 
   return (
     <Box sx={{ padding: 3 }}>
@@ -90,9 +162,18 @@ const ProductionPlanner: FC<ProductionPlannerProps> = ({
               onChange={(e) => setSelectedItem(e.target.value)}
               fullWidth
             >
-              {items?.map((item: Item) => (
+              {filteredItems.map((item: Item) => (
                 <MenuItem key={item.id} value={item.id}>
-                  {item.name}
+                  <Box display="flex" alignItems="center" gap={1}>
+                    {item.icon && (
+                      <img 
+                        src={`/icons/${item.icon}.webp`} 
+                        alt={item.name} 
+                        style={{ width: 20, height: 20 }} 
+                      />
+                    )}
+                    {item.name}
+                  </Box>
                 </MenuItem>
               ))}
             </TextField>
@@ -138,19 +219,17 @@ const ProductionPlanner: FC<ProductionPlannerProps> = ({
       </Box>
 
       {/* Render Production Nodes */}
-      <Box>
-        {nodes.map((node) => (
-          <ProductionNode
-            key={node.id}
-            id={node.id}
-            recipeId={node.recipeId}
-            name={node.name}
-            producerType={node.producerType}
-            producerCount={node.producerCount}
-            isByproduct={node.isByproduct}
-          />
-        ))}
-      </Box>
+      <TreeView
+        aria-label="production chain"
+        defaultExpandedItems={['root']}
+        slots={{
+          collapseIcon: ExpandMoreIcon,
+          expandIcon: ChevronRightIcon
+        }}
+        sx={{ flexGrow: 1, overflowY: 'auto' }}
+      >
+        {nodes.map(node => renderTree(node))}
+      </TreeView>
     </Box>
   );
 };

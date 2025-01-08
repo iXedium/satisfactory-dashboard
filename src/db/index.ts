@@ -81,3 +81,12 @@ export const addRecipes = async (recipes: Recipe[]) => {
 export const getRecipesByItemId = async (itemId: string) => {
   return await db.recipes.where("itemId").equals(itemId).toArray();
 };
+
+// Add these new query functions
+export const getAllItems = async () => {
+  return await db.items.toArray();
+};
+
+export const getAllRecipes = async () => {
+  return await db.recipes.toArray();
+};
