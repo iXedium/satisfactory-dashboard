@@ -18,6 +18,7 @@ import { Item, Recipe } from "../db/types";
 import { getAllItems, getAllRecipes } from "../db/index";
 import { calculateProductionChain } from "../utils/productionCalculator";
 import { ProductionTreeNode } from "../types/productionTypes";
+import { useProductionChain } from '../hooks/useProductionChain';
 
 const ProductionPlanner: FC = () => {
   const [items, setItems] = useState<Item[]>([]);
@@ -26,8 +27,18 @@ const ProductionPlanner: FC = () => {
   const [selectedRecipe, setSelectedRecipe] = useState("");
   const [productionRate, setProductionRate] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [nodes, setNodes] = useState<ProductionTreeNode[]>([]); // Moved up
   const [expandedNodes, setExpandedNodes] = useState<string[]>(['root']);
+
+  const {
+    nodes,
+    addNode,
+    deleteNode,
+    updateNode,
+    undo,
+    redo,
+    canUndo,
+    canRedo
+  } = useProductionChain(recipes);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -51,7 +62,7 @@ const ProductionPlanner: FC = () => {
     if (nodes.length > 0) {
       const getAllNodeIds = (node: ProductionTreeNode): string[] => {
         const ids = [node.id];
-        if (node.inputs) {
+        if (node.inputs && node.inputs.length > 0) {
           node.inputs.forEach(input => {
             ids.push(...getAllNodeIds(input));
           });
@@ -59,48 +70,37 @@ const ProductionPlanner: FC = () => {
         return ids;
       };
 
+      // Get all node IDs and add them to expanded state
       const allIds = nodes.flatMap(node => getAllNodeIds(node));
-      setExpandedNodes(['root', ...allIds]);
+      setExpandedNodes(prev => [...new Set([...prev, ...allIds])]);
+    } else {
+      // Reset expanded nodes when there are no nodes
+      setExpandedNodes([]);
     }
   }, [nodes]);
 
   const handleAddNode = () => {
-    const item = items.find((i) => i.id === selectedItem);
     const recipe = recipes.find((r) => r.id === selectedRecipe);
-
-    if (!item || !recipe || productionRate <= 0) {
+    if (!recipe || productionRate <= 0) {
       alert("Please select valid inputs and set a production rate.");
       return;
     }
-
-    const productionChain = calculateProductionChain(
-      recipe,
-      productionRate,
-      recipes
-    );
-
-    setNodes(prev => [...prev, productionChain]);
+    addNode(recipe, productionRate);
   };
 
-  const handleDeleteNode = (nodeId: string) => {
-    setNodes(prev => prev.filter(node => node.id !== nodeId));
-  };
-
+  const handleDeleteNode = (nodeId: string) => deleteNode(nodeId);
   const handleRateChange = (nodeId: string, newCount: number) => {
-    setNodes(prev => prev.map(node => 
-      node.id === nodeId ? { ...node, producerCount: newCount } : node
-    ));
+    updateNode(nodeId, { producerCount: newCount });
   };
-
   const handleRecipeChange = (nodeId: string, newRecipeId: string) => {
     const newRecipe = recipes.find(r => r.id === newRecipeId);
     if (!newRecipe) return;
-
-    setNodes(prev => prev.map(node =>
-      node.id === nodeId ? { ...node, recipeId: newRecipeId, name: newRecipe.name } : node
-    ));
+    updateNode(nodeId, { 
+      recipeId: newRecipeId, 
+      name: newRecipe.name 
+    });
   };
-  
+
   if (loading) {
     return <Typography>Loading...</Typography>;
   }
