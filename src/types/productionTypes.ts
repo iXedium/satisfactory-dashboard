@@ -18,3 +18,31 @@ export interface ProductionRate {
   machineCount: number;
   efficiency: number;
 }
+
+export interface NodeStats {
+  efficiency: number;
+  powerUsage: number;
+  inputRates: { [itemId: string]: number };
+  outputRates: { [itemId: string]: number };
+  byproducts: { [itemId: string]: number };
+}
+
+export interface ProductionSummary {
+  totalNodes: number;
+  totalMachines: number;
+  totalPower: number;
+  inputs: { [itemId: string]: number };
+  outputs: { [itemId: string]: number };
+  byproducts: { [itemId: string]: number };
+  efficiency: {
+    min: number;
+    max: number;
+    average: number;
+  };
+}
+
+export interface RateModifier {
+  type: 'overclock' | 'underclock' | 'multiplier';
+  value: number;
+  source?: string;
+}
