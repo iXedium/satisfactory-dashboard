@@ -1,239 +1,191 @@
 // Filename: src/pages/ProductionPlanner.tsx
 
-import { FC, useEffect, useState } from "react";
-import {
-  Box,
-  Typography,
-  Button,
-  TextField,
-  MenuItem,
-  Grid,
-  Card,
-  CardContent,
-} from "@mui/material";
+import React, { useState, useCallback } from 'react';
+import { Box, Card, CardContent, Grid, TextField, Select, MenuItem, Button } from '@mui/material';
 import { TreeView } from '@mui/x-tree-view/TreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import ProductionNode from "../components/ProductionNode";
-import { Item, Recipe } from "../db/types";
-import { getAllItems, getAllRecipes } from "../db/index";
-import { calculateProductionChain } from "../utils/productionCalculator";
-import { ProductionTreeNode } from "../types/productionTypes";
-import { useProductionChain } from '../hooks/useProductionChain';
+import { ProductionNode } from '../components/ProductionNode';
+import { ProductionTreeNode } from '../types/productionTypes';
+import { Recipe, Item } from '../db/types';
+import { updateProductionNode } from '../utils/calculateRates';
+import { useRecipes } from '../hooks/useRecipes';
+import { useItems } from '../hooks/useItems';
 
-const ProductionPlanner: FC = () => {
-  const [items, setItems] = useState<Item[]>([]);
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [selectedItem, setSelectedItem] = useState("");
-  const [selectedRecipe, setSelectedRecipe] = useState("");
-  const [productionRate, setProductionRate] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [expandedNodes, setExpandedNodes] = useState<string[]>(['root']);
+export const ProductionPlanner: React.FC = () => {
+  const { recipes, loading: recipesLoading } = useRecipes();
+  const { items, loading: itemsLoading } = useItems();
+  const [expanded, setExpanded] = useState<string[]>([]);
+  const [productionTree, setProductionTree] = useState<ProductionTreeNode[]>([]);
+  const [selectedItem, setSelectedItem] = useState<string>('');
+  const [selectedRecipe, setSelectedRecipe] = useState<string>('');
+  const [targetRate, setTargetRate] = useState<number>(1);
 
-  const {
-    nodes,
-    addNode,
-    deleteNode,
-    updateNode,
-    undo,
-    redo,
-    canUndo,
-    canRedo
-  } = useProductionChain(recipes);
+  const handleNodeExpand = (_event: React.SyntheticEvent, itemIds: string[]) => {
+    setExpanded(itemIds);
+  };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [itemsData, recipesData] = await Promise.all([
-          getAllItems(),
-          getAllRecipes()
-        ]);
-        setItems(itemsData);
-        setRecipes(recipesData);
-      } catch (error) {
-        console.error("Error loading data:", error);
-      }
-      setLoading(false);
-    };
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    if (nodes.length > 0) {
-      const getAllNodeIds = (node: ProductionTreeNode): string[] => {
-        const ids = [node.id];
-        if (node.inputs && node.inputs.length > 0) {
-          node.inputs.forEach(input => {
-            ids.push(...getAllNodeIds(input));
-          });
-        }
-        return ids;
+  const handleNodeUpdate = useCallback((nodeId: string, updates: Partial<ProductionTreeNode>) => {
+    setProductionTree(prevTree => {
+      const updateNode = (nodes: ProductionTreeNode[]): ProductionTreeNode[] => {
+        return nodes.map(node => {
+          if (node.id === nodeId) {
+            const updatedNode = { ...node, ...updates };
+            // Recalculate the entire subtree when a node is updated
+            return updateProductionNode(updatedNode, recipes);
+          }
+          if (node.inputs) {
+            return { ...node, inputs: updateNode(node.inputs) };
+          }
+          return node;
+        });
       };
+      return updateNode(prevTree);
+    });
+  }, [recipes]);
 
-      // Get all node IDs and add them to expanded state
-      const allIds = nodes.flatMap(node => getAllNodeIds(node));
-      setExpandedNodes(prev => [...new Set([...prev, ...allIds])]);
-    } else {
-      // Reset expanded nodes when there are no nodes
-      setExpandedNodes([]);
-    }
-  }, [nodes]);
+  const findAlternateRecipes = useCallback((itemId: string): Recipe[] => {
+    return recipes.filter((recipe: Recipe) => 
+      recipe.outputs.some((output: { id: string; quantity: number }) => output.id === itemId)
+    );
+  }, [recipes]);
 
   const handleAddNode = () => {
-    const recipe = recipes.find((r) => r.id === selectedRecipe);
-    if (!recipe || productionRate <= 0) {
-      alert("Please select valid inputs and set a production rate.");
-      return;
-    }
-    addNode(recipe, productionRate);
-  };
+    const recipe = recipes.find((recipe: Recipe) => recipe.id === selectedRecipe);
+    if (!recipe) return;
 
-  const handleDeleteNode = (nodeId: string) => deleteNode(nodeId);
-  const handleRateChange = (nodeId: string, newRate: number) => {
-    updateNode(nodeId, { targetRate: newRate });
-  };
-  const handleRecipeChange = (nodeId: string, newRecipeId: string) => {
-    const newRecipe = recipes.find(r => r.id === newRecipeId);
-    if (!newRecipe) return;
-    updateNode(nodeId, { 
-      recipeId: newRecipeId, 
-      name: newRecipe.name 
-    });
-  };
+    const newNode: ProductionTreeNode = {
+      id: `node-${Date.now()}`,
+      recipeId: recipe.id,
+      name: recipe.name,
+      producerType: recipe.producers[0],
+      producerCount: 1,
+      isByproduct: false,
+      targetRate,
+      actualRate: 0,
+      excessRate: 0,
+      efficiency: 100,
+      inputs: []
+    };
 
-  if (loading) {
-    return <Typography>Loading...</Typography>;
-  }
+    const updatedNode = updateProductionNode(newNode, recipes);
+    setProductionTree(prev => [...prev, updatedNode]);
+  };
 
   const renderTree = (node: ProductionTreeNode) => (
     <TreeItem
       key={node.id}
       itemId={node.id}
       label={
-        <Card variant="outlined" sx={{ mb: 1 }}>
-          <CardContent>
-            <ProductionNode
-              id={node.id}
-              recipeId={node.recipeId}
-              name={node.name}
-              producerType={node.producerType}
-              producerCount={node.producerCount}
-              isByproduct={node.isByproduct}
-              targetRate={node.targetRate}
-              actualRate={node.actualRate}
-              excessRate={node.excessRate}
-              efficiency={node.efficiency}
-              onDelete={handleDeleteNode}
-              onRateChange={handleRateChange}
-              onRecipeChange={handleRecipeChange}
-              alternateRecipes={recipes
-                .filter((r) => r.outputs.some(output => output.id === node.recipeId))
-                .map((r) => ({ id: r.id, name: r.name }))}
-              machineIcon={node.producerType.icon}
-            />
-          </CardContent>
-        </Card>
+        <ProductionNode
+          node={node}
+          recipes={recipes}
+          alternateRecipes={findAlternateRecipes(node.name)}
+          onUpdate={(updates) => handleNodeUpdate(node.id, updates)}
+        />
       }
     >
-      {node.inputs?.map(input => renderTree(input))}
+      {node.inputs?.filter(input => !input.isByproduct).map(input => renderTree(input))}
     </TreeItem>
   );
 
-  // Filter items that have at least one recipe
-  const produceableItems = items.filter(item => 
-    recipes.some(recipe => recipe.outputs.some(output => output.id === item.id))
+  if (recipesLoading || itemsLoading) {
+    return <Box>Loading...</Box>;
+  }
+
+  // Filter items that have recipes
+  const produceableItems = items.filter((item: Item) => 
+    recipes.some((recipe: Recipe) => 
+      recipe.outputs.some((output: { id: string; quantity: number }) => output.id === item.id)
+    )
   );
 
-  return (
-    <Box sx={{ padding: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Production Planner
-      </Typography>
+  // Get available recipes for selected item
+  const availableRecipes = selectedItem ? 
+    recipes.filter((recipe: Recipe) => 
+      recipe.outputs.some((output: { id: string; quantity: number }) => output.id === selectedItem)
+    ) : 
+    [];
 
-      {/* Add Production Chain Panel */}
-      <Card sx={{ mb: 4 }}>
+  return (
+    <Box sx={{ p: 2 }}>
+      {/* Add Production Node Form */}
+      <Card sx={{ mb: 2 }}>
         <CardContent>
-          <Grid container spacing={2}>
-            {/* Item Selection */}
-            <Grid item xs={4}>
-              <TextField
-                select
-                label="Select Item"
-                value={selectedItem}
-                onChange={(e) => setSelectedItem(e.target.value)}
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={4}>
+              <Select
                 fullWidth
+                value={selectedItem}
+                onChange={(e) => {
+                  setSelectedItem(e.target.value as string);
+                  setSelectedRecipe('');
+                }}
+                displayEmpty
+                size="small"
               >
+                <MenuItem value="" disabled>Select Item</MenuItem>
                 {produceableItems.map((item: Item) => (
                   <MenuItem key={item.id} value={item.id}>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      {item.icon && (
-                        <img 
-                          src={`/icons/${item.icon}.webp`} 
-                          alt={item.name} 
-                          style={{ width: 20, height: 20 }} 
-                        />
-                      )}
-                      {item.name}
-                    </Box>
+                    {item.name}
                   </MenuItem>
                 ))}
-              </TextField>
+              </Select>
             </Grid>
-
-            {/* Recipe Selection */}
-            <Grid item xs={4}>
-              <TextField
-                select
-                label="Select Recipe"
+            <Grid item xs={12} sm={4}>
+              <Select
+                fullWidth
                 value={selectedRecipe}
-                onChange={(e) => setSelectedRecipe(e.target.value)}
-                fullWidth
+                onChange={(e) => setSelectedRecipe(e.target.value as string)}
+                disabled={!selectedItem}
+                displayEmpty
+                size="small"
               >
-                {recipes
-                  .filter((r) => r.outputs.some(output => output.id === selectedItem))
-                  .map((recipe) => (
-                    <MenuItem key={recipe.id} value={recipe.id}>
-                      {recipe.name}
-                    </MenuItem>
-                  ))}
-              </TextField>
+                <MenuItem value="" disabled>Select Recipe</MenuItem>
+                {availableRecipes.map((recipe: Recipe) => (
+                  <MenuItem key={recipe.id} value={recipe.id}>
+                    {recipe.name}
+                  </MenuItem>
+                ))}
+              </Select>
             </Grid>
-
-            {/* Production Rate */}
-            <Grid item xs={2}>
+            <Grid item xs={12} sm={2}>
               <TextField
-                type="number"
-                label="Production Rate"
-                value={productionRate}
-                onChange={(e) => setProductionRate(Number(e.target.value))}
                 fullWidth
+                type="number"
+                label="Target Rate"
+                value={targetRate}
+                onChange={(e) => setTargetRate(Math.max(0.1, Number(e.target.value)))}
+                size="small"
+                inputProps={{ min: 0.1, step: 0.1 }}
               />
             </Grid>
-
-            {/* Add to Chain Button */}
-            <Grid item xs={2}>
-              <Button variant="contained" onClick={handleAddNode} fullWidth>
-                Add to Chain
+            <Grid item xs={12} sm={2}>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={handleAddNode}
+                disabled={!selectedRecipe || targetRate <= 0}
+              >
+                Add Node
               </Button>
             </Grid>
           </Grid>
         </CardContent>
       </Card>
 
-      {/* Render Production Nodes */}
+      {/* Production Tree */}
       <TreeView
         aria-label="production chain"
-        expandedItems={expandedNodes}
         slots={{
+          expandIcon: ChevronRightIcon,
           collapseIcon: ExpandMoreIcon,
-          expandIcon: ChevronRightIcon
         }}
-        onExpandedItemsChange={(event: React.SyntheticEvent, itemIds: string[]) => setExpandedNodes(itemIds)}
-        sx={{ flexGrow: 1, overflowY: 'auto' }}
+        expandedItems={expanded}
+        onExpandedItemsChange={handleNodeExpand}
       >
-        {nodes.map(node => renderTree(node))}
+        {productionTree.map(node => renderTree(node))}
       </TreeView>
     </Box>
   );

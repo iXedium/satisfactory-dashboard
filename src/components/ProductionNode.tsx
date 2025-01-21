@@ -1,160 +1,148 @@
 // Filename: src/components/ProductionNode.tsx
 
-import React, { memo } from 'react';
-import { 
-  Box, 
-  Typography, 
-  IconButton, 
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  SelectChangeEvent
-} from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
+import React from 'react';
+import { Card, CardContent, Grid, TextField, Select, MenuItem, Typography, SelectChangeEvent } from '@mui/material';
 import { ProductionTreeNode } from '../types/productionTypes';
+import { Recipe } from '../db/types';
 
 interface ProductionNodeProps {
-  id: string;
-  recipeId: string;
-  name: string;
-  producerType: {
-    type: string;
-    multiplier: number;
-    icon?: string;
-  };
-  producerCount: number;
-  isByproduct: boolean;
-  targetRate: number;
-  actualRate: number;
-  excessRate: number;
-  efficiency: number;
-  onDelete?: (nodeId: string) => void;
-  onRateChange?: (nodeId: string, newRate: number) => void;
-  onRecipeChange?: (nodeId: string, newRecipeId: string) => void;
-  alternateRecipes?: { id: string; name: string }[];
-  machineIcon?: string;
+  node: ProductionTreeNode;
+  recipes: Recipe[];
+  alternateRecipes: Recipe[];
+  onUpdate: (updates: Partial<ProductionTreeNode>) => void;
 }
 
-const ProductionNode = memo(({ 
-  id,
-  recipeId,
-  name,
-  producerType,
-  producerCount = 1,
-  isByproduct = false,
-  targetRate = 0,
-  actualRate = 0,
-  efficiency = 100,
-  excessRate = 0,
-  onDelete,
-  onRateChange,
-  onRecipeChange,
-  alternateRecipes = [],
-  machineIcon,
-}: ProductionNodeProps) => {
-  const handleRateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newRate = parseFloat(event.target.value);
-    if (!isNaN(newRate) && newRate >= 0 && onRateChange) {
-      onRateChange(id, newRate);
-    }
+export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({ 
+  node, 
+  recipes,
+  alternateRecipes,
+  onUpdate 
+}) => {
+  const handleExcessRateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(event.target.value) || 0;
+    onUpdate({ excessRate: value });
+  };
+
+  const handleMachineCountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(event.target.value) || 1;
+    onUpdate({ producerCount: value });
   };
 
   const handleRecipeChange = (event: SelectChangeEvent<string>) => {
-    if (onRecipeChange) {
-      onRecipeChange(id, event.target.value);
-    }
+    const recipeId = event.target.value;
+    const recipe = recipes.find(r => r.id === recipeId);
+    if (!recipe) return;
+    
+    onUpdate({ 
+      recipeId,
+      producerType: recipe.producers[0]
+    });
   };
 
-  const getEfficiencyColor = (eff: number): string => {
-    if (eff > 100) return 'error.main';
-    if (eff < 100) return 'warning.main';
-    return 'success.main';
+  const handleMultiplierChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(event.target.value) || 1;
+    onUpdate({ 
+      producerType: {
+        ...node.producerType,
+        multiplier: value
+      }
+    });
   };
 
-  const safeEfficiency = typeof efficiency === 'number' ? efficiency : 100;
-  const safeTargetRate = typeof targetRate === 'number' ? targetRate : 0;
-  const safeExcessRate = typeof excessRate === 'number' ? excessRate : 0;
-  const safeProducerCount = typeof producerCount === 'number' ? producerCount : 1;
+  // Calculate total production rate
+  const totalRate = node.targetRate + node.excessRate;
 
   return (
-    <Box display="flex" alignItems="center" gap={2} sx={{ py: 1 }}>
-      <Box display="flex" alignItems="center" gap={1} sx={{ flexGrow: 1 }}>
-        {machineIcon && (
-          <img 
-            src={`/icons/${machineIcon}.webp`} 
-            alt={name} 
-            style={{ width: 24, height: 24 }} 
-          />
-        )}
-        <Typography variant="subtitle1">
-          {name}
-        </Typography>
-      </Box>
-
-      <Box display="flex" alignItems="center" gap={2}>
-        {alternateRecipes.length > 0 && (
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Recipe</InputLabel>
+    <Card variant="outlined" sx={{ mb: 1 }}>
+      <CardContent>
+        <Grid container spacing={2} alignItems="center">
+          {/* Recipe Selection */}
+          <Grid item xs={12} sm={3}>
             <Select
-              value={recipeId}
-              label="Recipe"
+              fullWidth
+              value={node.recipeId}
               onChange={handleRecipeChange}
+              size="small"
             >
-              {alternateRecipes.map((recipe) => (
+              {alternateRecipes.map(recipe => (
                 <MenuItem key={recipe.id} value={recipe.id}>
                   {recipe.name}
                 </MenuItem>
               ))}
             </Select>
-          </FormControl>
-        )}
+          </Grid>
 
-        <TextField
-          size="small"
-          label="Target Rate"
-          type="number"
-          value={safeTargetRate}
-          onChange={handleRateChange}
-          sx={{ width: 120 }}
-        />
-        
-        <Typography
-          variant="body2"
-          sx={{
-            color: getEfficiencyColor(safeEfficiency),
-            fontWeight: 'bold',
-          }}
-        >
-          {safeEfficiency.toFixed(1)}%
-        </Typography>
+          {/* Machine Settings */}
+          <Grid item xs={6} sm={2}>
+            <TextField
+              fullWidth
+              label="Machines"
+              type="number"
+              size="small"
+              value={node.producerCount}
+              onChange={handleMachineCountChange}
+              inputProps={{ min: 1 }}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2}>
+            <TextField
+              fullWidth
+              label="Multiplier"
+              type="number"
+              size="small"
+              value={node.producerType.multiplier}
+              onChange={handleMultiplierChange}
+              inputProps={{ min: 0.1, step: 0.1 }}
+            />
+          </Grid>
 
-        <Typography variant="body2">
-          × {safeProducerCount} {producerType.type}
-          {producerType.multiplier > 1 && ` (×${producerType.multiplier})`}
-        </Typography>
+          {/* Production Rates */}
+          <Grid item xs={6} sm={2}>
+            <Typography variant="caption" display="block">Required Rate</Typography>
+            <Typography>{node.targetRate.toFixed(1)}/min</Typography>
+          </Grid>
+          <Grid item xs={6} sm={2}>
+            <TextField
+              fullWidth
+              label="Excess"
+              type="number"
+              size="small"
+              value={node.excessRate}
+              onChange={handleExcessRateChange}
+              inputProps={{ step: 0.1 }}
+            />
+          </Grid>
 
-        {safeExcessRate > 0 && (
-          <Typography variant="body2" color="info.main">
-            +{safeExcessRate.toFixed(1)}/min excess
-          </Typography>
-        )}
+          {/* Total Rate and Efficiency */}
+          <Grid item xs={6} sm={1}>
+            <Typography variant="caption" display="block">Total</Typography>
+            <Typography>{totalRate.toFixed(1)}/min</Typography>
+          </Grid>
+          <Grid item xs={6} sm={1}>
+            <Typography 
+              variant="caption" 
+              display="block"
+              color={node.efficiency < 90 ? 'warning.main' : 'success.main'}
+            >
+              {node.efficiency.toFixed(0)}%
+            </Typography>
+          </Grid>
+        </Grid>
 
-        {onDelete && (
-          <IconButton
-            size="small"
-            onClick={() => onDelete(id)}
-            sx={{ color: 'error.main' }}
+        {/* Byproducts */}
+        {node.inputs?.filter(input => input.isByproduct).map(byproduct => (
+          <Typography 
+            key={byproduct.id} 
+            variant="caption" 
+            color="text.secondary"
+            sx={{ display: 'block', mt: 1 }}
           >
-            <DeleteIcon />
-          </IconButton>
-        )}
-      </Box>
-    </Box>
+            Byproduct: {byproduct.name} ({Math.abs(byproduct.actualRate).toFixed(1)}/min)
+          </Typography>
+        ))}
+      </CardContent>
+    </Card>
   );
 });
 
 ProductionNode.displayName = 'ProductionNode';
-
-export default ProductionNode;
