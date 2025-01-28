@@ -53,11 +53,11 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
   const totalRate = node.targetRate + node.excessRate;
 
   return (
-    <Card variant="outlined" sx={{ mb: 1 }}>
-      <CardContent>
+    <Card variant="outlined" sx={{ mb: 1, width: '100%' }}>
+      <CardContent sx={{ '&:last-child': { pb: 2 } }}>
         <Grid container spacing={2} alignItems="center">
           {/* Recipe Selection */}
-          <Grid item xs={12} sm={3}>
+          <Grid item xs={12} sm={4}>
             <Select
               fullWidth
               value={node.recipeId}
@@ -73,7 +73,7 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
           </Grid>
 
           {/* Machine Settings */}
-          <Grid item xs={6} sm={2}>
+          <Grid item xs={12} sm={2}>
             <TextField
               fullWidth
               label="Machines"
@@ -84,7 +84,7 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
               inputProps={{ min: 1 }}
             />
           </Grid>
-          <Grid item xs={6} sm={2}>
+          <Grid item xs={12} sm={2}>
             <TextField
               fullWidth
               label="Multiplier"
@@ -96,12 +96,8 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
             />
           </Grid>
 
-          {/* Production Rates */}
-          <Grid item xs={6} sm={2}>
-            <Typography variant="caption" display="block">Required Rate</Typography>
-            <Typography>{node.targetRate.toFixed(1)}/min</Typography>
-          </Grid>
-          <Grid item xs={6} sm={2}>
+          {/* Excess Rate Input */}
+          <Grid item xs={12} sm={2}>
             <TextField
               fullWidth
               label="Excess"
@@ -113,18 +109,10 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
             />
           </Grid>
 
-          {/* Total Rate and Efficiency */}
-          <Grid item xs={6} sm={1}>
-            <Typography variant="caption" display="block">Total</Typography>
-            <Typography>{totalRate.toFixed(1)}/min</Typography>
-          </Grid>
-          <Grid item xs={6} sm={1}>
-            <Typography 
-              variant="caption" 
-              display="block"
-              color={node.efficiency < 90 ? 'warning.main' : 'success.main'}
-            >
-              {node.efficiency.toFixed(0)}%
+          {/* Production Rate */}
+          <Grid item xs={12} sm={2} sx={{ textAlign: 'right' }}>
+            <Typography variant="h6" color="primary">
+              {node.targetRate.toFixed(1)}/min
             </Typography>
           </Grid>
         </Grid>

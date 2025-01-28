@@ -1,11 +1,12 @@
 // Filename: src/pages/ProductionPlanner.tsx
 
 import React, { useState, useCallback } from 'react';
-import { Box, Card, CardContent, Grid, TextField, Select, MenuItem, Button, Typography } from '@mui/material';
+import { Box, Card, CardContent, Grid, TextField, Select, MenuItem, Button, Typography, IconButton } from '@mui/material';
 import { TreeView } from '@mui/x-tree-view/TreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { ProductionNode } from '../components/ProductionNode';
 import { ProductionTreeNode } from '../types/productionTypes';
 import { Recipe, Item } from '../db/types';
@@ -47,19 +48,34 @@ export const ProductionPlanner: React.FC = () => {
   }, [recipes]);
 
   const findAlternateRecipes = useCallback((itemId: string): Recipe[] => {
+    // Find all recipes that produce this item as their primary output
     return recipes.filter((recipe: Recipe) => 
-      recipe.outputs.some((output: { id: string; quantity: number }) => output.id === itemId)
+      recipe.outputs.some(output => output.id === itemId)
     );
   }, [recipes]);
 
+  // Function to get all node IDs recursively
+  const getAllNodeIds = useCallback((nodes: ProductionTreeNode[]): string[] => {
+    return nodes.reduce((acc: string[], node) => {
+      acc.push(node.id);
+      if (node.inputs) {
+        acc.push(...getAllNodeIds(node.inputs));
+      }
+      return acc;
+    }, []);
+  }, []);
+
+  // Update handleAddNode to expand all nodes by default
   const handleAddNode = () => {
     const recipe = recipes.find((recipe: Recipe) => recipe.id === selectedRecipe);
     if (!recipe) return;
 
+    // Create the root node
+    const newNodeId = `node-${Date.now()}`;
     const newNode: ProductionTreeNode = {
-      id: `node-${Date.now()}`,
+      id: newNodeId,
       recipeId: recipe.id,
-      name: recipe.name,
+      name: selectedItem, // Use the selected item ID instead of recipe name
       producerType: recipe.producers[0],
       producerCount: 1,
       isByproduct: false,
@@ -70,21 +86,83 @@ export const ProductionPlanner: React.FC = () => {
       inputs: []
     };
 
+    // Create input nodes recursively
+    const createInputNodes = (recipe: Recipe, parentRate: number): ProductionTreeNode[] => {
+      return recipe.inputs.map(input => {
+        // Calculate required input rate based on recipe ratios
+        const inputRate = (input.quantity / recipe.outputs[0].quantity) * parentRate;
+        
+        // Find a recipe that produces this input
+        const inputRecipe = recipes.find(r => 
+          r.outputs.some(output => output.id === input.id)
+        );
+        
+        if (!inputRecipe) return null;
+
+        const inputNode: ProductionTreeNode = {
+          id: `node-${Date.now()}-${input.id}`,
+          recipeId: inputRecipe.id,
+          name: input.id,
+          producerType: inputRecipe.producers[0],
+          producerCount: 1,
+          isByproduct: false,
+          targetRate: inputRate,
+          actualRate: 0,
+          excessRate: 0,
+          efficiency: 100,
+          inputs: []
+        };
+
+        // Recursively create inputs for this node
+        inputNode.inputs = createInputNodes(inputRecipe, inputRate);
+        return inputNode;
+      }).filter(Boolean) as ProductionTreeNode[];
+    };
+
+    // Create the full production chain
+    newNode.inputs = createInputNodes(recipe, targetRate);
+
+    // Update rates throughout the chain
     const updatedNode = updateProductionNode(newNode, recipes);
     setProductionTree(prev => [...prev, updatedNode]);
+    
+    // Expand all nodes in the tree
+    const allNodeIds = getAllNodeIds([updatedNode]);
+    setExpanded(prev => [...new Set([...prev, ...allNodeIds])]);
   };
 
-  const renderTree = (node: ProductionTreeNode) => (
+  // Add delete node functionality
+  const handleDeleteNode = (nodeId: string) => {
+    setProductionTree(prev => prev.filter(node => node.id !== nodeId));
+  };
+
+  const renderTree = (node: ProductionTreeNode, isRoot: boolean = false) => (
     <TreeItem
       key={node.id}
       nodeId={node.id}
       label={
-        <ProductionNode
-          node={node}
-          recipes={recipes}
-          alternateRecipes={findAlternateRecipes(node.name)}
-          onUpdate={(updates) => handleNodeUpdate(node.id, updates)}
-        />
+        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+          <Box sx={{ flexGrow: 1 }}>
+            <ProductionNode
+              node={node}
+              recipes={recipes}
+              alternateRecipes={findAlternateRecipes(node.name)}
+              onUpdate={(updates) => handleNodeUpdate(node.id, updates)}
+            />
+          </Box>
+          {isRoot && (
+            <IconButton 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteNode(node.id);
+              }}
+              size="small"
+              sx={{ ml: 1 }}
+            >
+              <DeleteIcon />
+            </IconButton>
+          )}
+        </Box>
       }
     >
       {node.inputs?.filter(input => !input.isByproduct).map(input => renderTree(input))}
@@ -156,8 +234,17 @@ export const ProductionPlanner: React.FC = () => {
                 fullWidth
                 value={selectedItem}
                 onChange={(e) => {
-                  setSelectedItem(e.target.value as string);
-                  setSelectedRecipe('');
+                  const itemId = e.target.value as string;
+                  setSelectedItem(itemId);
+                  // Auto-select first available recipe
+                  const firstRecipe = recipes.find((recipe: Recipe) => 
+                    recipe.outputs.some(output => output.id === itemId)
+                  );
+                  if (firstRecipe) {
+                    setSelectedRecipe(firstRecipe.id);
+                  } else {
+                    setSelectedRecipe('');
+                  }
                 }}
                 displayEmpty
                 size="small"
@@ -220,7 +307,7 @@ export const ProductionPlanner: React.FC = () => {
         expanded={expanded}
         onNodeToggle={handleNodeExpand}
       >
-        {productionTree.map(node => renderTree(node))}
+        {productionTree.map(node => renderTree(node, true))}
       </TreeView>
     </Box>
   );
