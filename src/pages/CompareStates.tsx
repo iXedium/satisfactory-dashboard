@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import Grid from "@mui/material/Grid2"; // Use Grid2
+import Grid from "@mui/material/Grid"; // Use Grid2
 import {
   Paper,
   Typography,

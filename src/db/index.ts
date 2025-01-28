@@ -26,15 +26,29 @@ class AppDatabase extends Dexie {
 
   constructor() {
     super("SatisfactoryDashboard");
-    this.version(1).stores({
-      builds: "++id,name", // Auto-increment ID and name as indexed fields
-      items: "id, name, category", // Index on id, name, and category
-      recipes: "id, itemId, name", // Index on id, itemId, and name
+    
+    // Delete the database if schema version mismatch
+    this.on('blocked', () => {
+      this.delete().then(() => console.log("Database deleted due to version mismatch"));
+    });
+
+    // Current schema version
+    this.version(11).stores({
+      builds: "++id,name",
+      items: "id, name, category",
+      recipes: "id, itemId, name",
     });
   }
 }
 
 const db = new AppDatabase();
+
+// Function to reset database
+export const resetDatabase = async () => {
+  await db.delete();
+  window.location.reload();
+};
+
 export default db;
 
 // Build utility functions

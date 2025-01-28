@@ -1,7 +1,7 @@
 // Filename: src/pages/ProductionPlanner.tsx
 
 import React, { useState, useCallback } from 'react';
-import { Box, Card, CardContent, Grid, TextField, Select, MenuItem, Button } from '@mui/material';
+import { Box, Card, CardContent, Grid, TextField, Select, MenuItem, Button, Typography } from '@mui/material';
 import { TreeView } from '@mui/x-tree-view/TreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -12,10 +12,11 @@ import { Recipe, Item } from '../db/types';
 import { updateProductionNode } from '../utils/calculateRates';
 import { useRecipes } from '../hooks/useRecipes';
 import { useItems } from '../hooks/useItems';
+import { resetDatabase } from "../db";
 
 export const ProductionPlanner: React.FC = () => {
-  const { recipes, loading: recipesLoading } = useRecipes();
-  const { items, loading: itemsLoading } = useItems();
+  const { recipes, loading: recipesLoading, error: recipesError } = useRecipes();
+  const { items, loading: itemsLoading, error: itemsError } = useItems();
   const [expanded, setExpanded] = useState<string[]>([]);
   const [productionTree, setProductionTree] = useState<ProductionTreeNode[]>([]);
   const [selectedItem, setSelectedItem] = useState<string>('');
@@ -76,7 +77,7 @@ export const ProductionPlanner: React.FC = () => {
   const renderTree = (node: ProductionTreeNode) => (
     <TreeItem
       key={node.id}
-      itemId={node.id}
+      nodeId={node.id}
       label={
         <ProductionNode
           node={node}
@@ -91,7 +92,43 @@ export const ProductionPlanner: React.FC = () => {
   );
 
   if (recipesLoading || itemsLoading) {
-    return <Box>Loading...</Box>;
+    return (
+      <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+        <div>Loading data...</div>
+      </Box>
+    );
+  }
+
+  if (itemsError || recipesError) {
+    return (
+      <Box sx={{ p: 2, textAlign: 'center' }}>
+        <Typography variant="body1" sx={{ mb: 2 }}>
+          Error loading data. This may be due to a database version mismatch.
+        </Typography>
+        <Button variant="contained" color="error" onClick={resetDatabase} sx={{ mr: 1 }}>
+          Reset Database
+        </Button>
+        <Button variant="contained" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </Box>
+    );
+  }
+
+  if (!items.length || !recipes.length) {
+    return (
+      <Box sx={{ p: 2, textAlign: 'center' }}>
+        <Typography variant="body1" sx={{ mb: 2 }}>
+          No items or recipes found in database. The database may need to be reset.
+        </Typography>
+        <Button variant="contained" color="error" onClick={resetDatabase} sx={{ mr: 1 }}>
+          Reset Database
+        </Button>
+        <Button variant="contained" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </Box>
+    );
   }
 
   // Filter items that have recipes
@@ -178,12 +215,10 @@ export const ProductionPlanner: React.FC = () => {
       {/* Production Tree */}
       <TreeView
         aria-label="production chain"
-        slots={{
-          expandIcon: ChevronRightIcon,
-          collapseIcon: ExpandMoreIcon,
-        }}
-        expandedItems={expanded}
-        onExpandedItemsChange={handleNodeExpand}
+        defaultExpandIcon={<ChevronRightIcon />}
+        defaultCollapseIcon={<ExpandMoreIcon />}
+        expanded={expanded}
+        onNodeToggle={handleNodeExpand}
       >
         {productionTree.map(node => renderTree(node))}
       </TreeView>
