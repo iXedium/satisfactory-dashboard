@@ -1,6 +1,6 @@
 // Filename: src/pages/ProductionPlanner.tsx
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Box, Card, CardContent, Grid, TextField, Select, MenuItem, Button, Typography, IconButton } from '@mui/material';
 import { TreeView } from '@mui/x-tree-view/TreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
@@ -11,46 +11,201 @@ import { ProductionNode } from '../components/ProductionNode';
 import { ProductionTreeNode } from '../types/productionTypes';
 import { Recipe, Item } from '../db/types';
 import { updateProductionNode } from '../utils/calculateRates';
-import { useRecipes } from '../hooks/useRecipes';
-import { useItems } from '../hooks/useItems';
-import { resetDatabase } from "../db";
+import { useStaticData } from '../hooks/useStaticData';
+
+// Error boundary component
+class TreeErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('TreeView error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Box sx={{ p: 2, color: 'error.main' }}>
+          <Typography>Something went wrong with the tree view. Please refresh the page.</Typography>
+        </Box>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 export const ProductionPlanner: React.FC = () => {
-  const { recipes, loading: recipesLoading, error: recipesError } = useRecipes();
-  const { items, loading: itemsLoading, error: itemsError } = useItems();
+  const { 
+    items, 
+    recipes, 
+    loading, 
+    error,
+    getRecipe,
+    getRecipesForItem 
+  } = useStaticData();
+
   const [expanded, setExpanded] = useState<string[]>([]);
   const [productionTree, setProductionTree] = useState<ProductionTreeNode[]>([]);
   const [selectedItem, setSelectedItem] = useState<string>('');
   const [selectedRecipe, setSelectedRecipe] = useState<string>('');
   const [targetRate, setTargetRate] = useState<number>(1);
 
+  // Memoize produceable items to avoid recalculation
+  const produceableItems = useMemo(() => 
+    items.filter((item: Item) => getRecipesForItem(item.id).length > 0),
+    [items, getRecipesForItem]
+  );
+
+  // Memoize available recipes for selected item
+  const availableRecipes = useMemo(() => 
+    selectedItem ? getRecipesForItem(selectedItem) : [],
+    [selectedItem, getRecipesForItem]
+  );
+
+  // Keep track of valid node IDs
+  const [validNodeIds, setValidNodeIds] = useState<Set<string>>(new Set());
+
+  // Update valid node IDs whenever the tree changes
+  useEffect(() => {
+    const collectNodeIds = (nodes: ProductionTreeNode[]): Set<string> => {
+      const ids = new Set<string>();
+      const processNode = (node: ProductionTreeNode) => {
+        if (node && node.id) {
+          ids.add(node.id);
+          if (node.inputs) {
+            node.inputs.forEach(processNode);
+          }
+        }
+      };
+      nodes.forEach(processNode);
+      return ids;
+    };
+
+    const newValidIds = collectNodeIds(productionTree);
+    setValidNodeIds(newValidIds);
+
+    // Clean up expanded state
+    setExpanded(prev => prev.filter(id => newValidIds.has(id)));
+  }, [productionTree]);
+
   const handleNodeExpand = (_event: React.SyntheticEvent, itemIds: string[]) => {
     setExpanded(itemIds);
   };
 
   const handleNodeUpdate = useCallback((nodeId: string, updates: Partial<ProductionTreeNode>) => {
+    // Keep track of the current expanded state before the update
+    const wasExpanded = new Set(expanded);
+
     setProductionTree(prevTree => {
-      const updateNode = (nodes: ProductionTreeNode[]): ProductionTreeNode[] => {
+      const updateNode = (nodes: ProductionTreeNode[], parentId: string = ''): ProductionTreeNode[] => {
         return nodes.map(node => {
+          if (!node || !node.id) return node;
+
           if (node.id === nodeId) {
             const updatedNode = { ...node, ...updates };
-            // Recalculate the entire subtree when a node is updated
+            
+            // If recipe changed, we need to rebuild the input chain
+            if (updates.recipeId && updates.recipeId !== node.recipeId) {
+              const recipe = getRecipe(updates.recipeId);
+              if (!recipe) return updatedNode;
+
+              // Create new input nodes with unique IDs based on parent
+              const timestamp = Date.now();
+              let nodeCounter = 0;
+
+              const createInputNodes = (
+                recipe: Recipe, 
+                parentRate: number,
+                parentNodeId: string,
+                processedItems: Set<string> = new Set()
+              ): ProductionTreeNode[] => {
+                const nodes: ProductionTreeNode[] = [];
+
+                const inputs = Object.entries(recipe.in).map(([id, quantity]) => ({ id, quantity }));
+                for (const input of inputs) {
+                  if (processedItems.has(input.id)) continue;
+
+                  const inputRecipes = getRecipesForItem(input.id);
+                  if (!inputRecipes.length) continue;
+
+                  const inputRecipe = inputRecipes[0];
+                  const mainOutput = Object.entries(recipe.out)[0];
+                  const inputRate = (input.quantity / mainOutput[1]) * parentRate;
+                  processedItems.add(input.id);
+
+                  const newNodeId = `${parentNodeId}-${nodeCounter++}`;
+                  const inputNode: ProductionTreeNode = {
+                    id: newNodeId,
+                    recipeId: inputRecipe.id,
+                    name: input.id,
+                    producerType: {
+                      ...inputRecipe.producers[0],
+                      multiplier: 1
+                    },
+                    producerCount: 1,
+                    isByproduct: false,
+                    targetRate: inputRate,
+                    actualRate: 0,
+                    excessRate: 0,
+                    efficiency: 100,
+                    inputs: []
+                  };
+
+                  inputNode.inputs = createInputNodes(
+                    inputRecipe, 
+                    inputRate,
+                    newNodeId,
+                    processedItems
+                  );
+                  nodes.push(inputNode);
+                }
+
+                return nodes;
+              };
+
+              // Replace the input chain with new nodes
+              updatedNode.inputs = createInputNodes(recipe, updatedNode.targetRate, updatedNode.id);
+
+              // If this branch was expanded, keep it expanded
+              if (wasExpanded.has(nodeId)) {
+                // Collect all new node IDs
+                const newIds = new Set<string>();
+                const collectNewIds = (node: ProductionTreeNode) => {
+                  if (node.id) newIds.add(node.id);
+                  node.inputs?.forEach(collectNewIds);
+                };
+                collectNewIds(updatedNode);
+                
+                // Update expanded state to include all new nodes
+                setExpanded(prev => [...new Set([...prev, ...newIds])]);
+              }
+            }
+
+            // Update rates for this node and its inputs
             return updateProductionNode(updatedNode, recipes);
           }
+
           if (node.inputs) {
-            return { ...node, inputs: updateNode(node.inputs) };
+            return { ...node, inputs: updateNode(node.inputs, node.id) };
           }
           return node;
-        });
+        }).filter(Boolean);
       };
       return updateNode(prevTree);
     });
-  }, [recipes]);
+  }, [recipes, getRecipe, getRecipesForItem, expanded]);
 
   const findAlternateRecipes = useCallback((itemId: string): Recipe[] => {
     // Find all recipes that produce this item as their primary output
     return recipes.filter((recipe: Recipe) => 
-      recipe.outputs.some(output => output.id === itemId)
+      Object.keys(recipe.out).includes(itemId)
     );
   }, [recipes]);
 
@@ -65,18 +220,22 @@ export const ProductionPlanner: React.FC = () => {
     }, []);
   }, []);
 
-  // Update handleAddNode to expand all nodes by default
-  const handleAddNode = () => {
-    const recipe = recipes.find((recipe: Recipe) => recipe.id === selectedRecipe);
+  const handleAddNode = useCallback(() => {
+    const recipe = getRecipe(selectedRecipe);
     if (!recipe) return;
 
+    const timestamp = Date.now();
+    const rootNodeId = `node-${timestamp}`;
+
     // Create the root node
-    const newNodeId = `node-${Date.now()}`;
     const newNode: ProductionTreeNode = {
-      id: newNodeId,
+      id: rootNodeId,
       recipeId: recipe.id,
-      name: selectedItem, // Use the selected item ID instead of recipe name
-      producerType: recipe.producers[0],
+      name: selectedItem,
+      producerType: {
+        ...recipe.producers[0],
+        multiplier: 1
+      },
       producerCount: 1,
       isByproduct: false,
       targetRate,
@@ -86,24 +245,37 @@ export const ProductionPlanner: React.FC = () => {
       inputs: []
     };
 
-    // Create input nodes recursively
-    const createInputNodes = (recipe: Recipe, parentRate: number): ProductionTreeNode[] => {
-      return recipe.inputs.map(input => {
-        // Calculate required input rate based on recipe ratios
-        const inputRate = (input.quantity / recipe.outputs[0].quantity) * parentRate;
-        
-        // Find a recipe that produces this input
-        const inputRecipe = recipes.find(r => 
-          r.outputs.some(output => output.id === input.id)
-        );
-        
-        if (!inputRecipe) return null;
+    // Create input nodes recursively with optimized lookup
+    const createInputNodes = (
+      recipe: Recipe, 
+      parentRate: number,
+      parentNodeId: string,
+      processedItems: Set<string> = new Set()
+    ): ProductionTreeNode[] => {
+      const nodes: ProductionTreeNode[] = [];
+      let nodeCounter = 0;
 
+      const inputs = Object.entries(recipe.in).map(([id, quantity]) => ({ id, quantity }));
+      for (const input of inputs) {
+        if (processedItems.has(input.id)) continue;
+
+        const inputRecipes = getRecipesForItem(input.id);
+        if (!inputRecipes.length) continue;
+
+        const inputRecipe = inputRecipes[0];
+        const mainOutput = Object.entries(recipe.out)[0];
+        const inputRate = (input.quantity / mainOutput[1]) * parentRate;
+        processedItems.add(input.id);
+
+        const newNodeId = `${parentNodeId}-${nodeCounter++}`;
         const inputNode: ProductionTreeNode = {
-          id: `node-${Date.now()}-${input.id}`,
+          id: newNodeId,
           recipeId: inputRecipe.id,
           name: input.id,
-          producerType: inputRecipe.producers[0],
+          producerType: {
+            ...inputRecipe.producers[0],
+            multiplier: 1
+          },
           producerCount: 1,
           isByproduct: false,
           targetRate: inputRate,
@@ -113,81 +285,123 @@ export const ProductionPlanner: React.FC = () => {
           inputs: []
         };
 
-        // Recursively create inputs for this node
-        inputNode.inputs = createInputNodes(inputRecipe, inputRate);
-        return inputNode;
-      }).filter(Boolean) as ProductionTreeNode[];
+        inputNode.inputs = createInputNodes(
+          inputRecipe, 
+          inputRate,
+          newNodeId,
+          processedItems
+        );
+        nodes.push(inputNode);
+      }
+
+      // Add byproducts
+      const outputs = Object.entries(recipe.out);
+      const mainOutputId = outputs[0][0];
+      for (const [id, quantity] of outputs) {
+        if (id !== mainOutputId) {
+          const byproductId = `${parentNodeId}-byproduct-${nodeCounter++}`;
+          nodes.push({
+            id: byproductId,
+            recipeId: recipe.id,
+            name: id,
+            producerType: {
+              ...recipe.producers[0],
+              multiplier: 1
+            },
+            producerCount: 0,
+            isByproduct: true,
+            targetRate: 0,
+            actualRate: 0,
+            excessRate: 0,
+            efficiency: 100,
+            inputs: []
+          });
+        }
+      }
+
+      return nodes;
     };
 
-    // Create the full production chain
-    newNode.inputs = createInputNodes(recipe, targetRate);
-
-    // Update rates throughout the chain
+    newNode.inputs = createInputNodes(recipe, targetRate, rootNodeId);
     const updatedNode = updateProductionNode(newNode, recipes);
+    
     setProductionTree(prev => [...prev, updatedNode]);
     
-    // Expand all nodes in the tree
-    const allNodeIds = getAllNodeIds([updatedNode]);
-    setExpanded(prev => [...new Set([...prev, ...allNodeIds])]);
-  };
+    // Collect all node IDs to expand
+    const expandedNodes = new Set<string>();
+    const addNodeToExpanded = (node: ProductionTreeNode) => {
+      if (node.id) expandedNodes.add(node.id);
+      node.inputs?.forEach(addNodeToExpanded);
+    };
+    addNodeToExpanded(updatedNode);
+    
+    setExpanded(prev => [...new Set([...prev, ...expandedNodes])]);
+  }, [selectedRecipe, selectedItem, targetRate, recipes, getRecipe, getRecipesForItem]);
 
   // Add delete node functionality
   const handleDeleteNode = (nodeId: string) => {
     setProductionTree(prev => prev.filter(node => node.id !== nodeId));
   };
 
-  const renderTree = (node: ProductionTreeNode, isRoot: boolean = false) => (
-    <TreeItem
-      key={node.id}
-      nodeId={node.id}
-      label={
-        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-          <Box sx={{ flexGrow: 1 }}>
-            <ProductionNode
-              node={node}
-              recipes={recipes}
-              alternateRecipes={findAlternateRecipes(node.name)}
-              onUpdate={(updates) => handleNodeUpdate(node.id, updates)}
-            />
-          </Box>
-          {isRoot && (
-            <IconButton 
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteNode(node.id);
-              }}
-              size="small"
-              sx={{ ml: 1 }}
-            >
-              <DeleteIcon />
-            </IconButton>
-          )}
-        </Box>
-      }
-    >
-      {node.inputs?.filter(input => !input.isByproduct).map(input => renderTree(input))}
-    </TreeItem>
-  );
+  const renderTree = (node: ProductionTreeNode, isRoot: boolean = false) => {
+    if (!node || !node.id || !node.name || !validNodeIds.has(node.id)) return null;
 
-  if (recipesLoading || itemsLoading) {
+    return (
+      <TreeItem
+        key={`tree-${node.id}`}
+        nodeId={node.id}
+        disabled={false}
+        expandIcon={<ChevronRightIcon />}
+        collapseIcon={<ExpandMoreIcon />}
+        label={
+          <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+            <Box sx={{ flexGrow: 1 }}>
+              <ProductionNode
+                node={node}
+                recipes={recipes}
+                alternateRecipes={findAlternateRecipes(node.name)}
+                onUpdate={(updates) => handleNodeUpdate(node.id, updates)}
+              />
+            </Box>
+            {isRoot && (
+              <IconButton 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteNode(node.id);
+                }}
+                size="small"
+                sx={{ ml: 1 }}
+              >
+                <DeleteIcon />
+              </IconButton>
+            )}
+          </Box>
+        }
+      >
+        {node.inputs?.filter(input => input && !input.isByproduct && validNodeIds.has(input.id)).map(input => renderTree(input))}
+      </TreeItem>
+    );
+  };
+
+  if (loading) {
     return (
       <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
-        <div>Loading data...</div>
+        <Typography>Loading production data...</Typography>
       </Box>
     );
   }
 
-  if (itemsError || recipesError) {
+  if (error) {
     return (
       <Box sx={{ p: 2, textAlign: 'center' }}>
         <Typography variant="body1" sx={{ mb: 2 }}>
-          Error loading data. This may be due to a database version mismatch.
+          Failed to load production data. Please check your connection and try again.
         </Typography>
-        <Button variant="contained" color="error" onClick={resetDatabase} sx={{ mr: 1 }}>
-          Reset Database
-        </Button>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+          Error: {error.message}
+        </Typography>
         <Button variant="contained" onClick={() => window.location.reload()}>
-          Retry
+          Reload Page
         </Button>
       </Box>
     );
@@ -197,31 +411,14 @@ export const ProductionPlanner: React.FC = () => {
     return (
       <Box sx={{ p: 2, textAlign: 'center' }}>
         <Typography variant="body1" sx={{ mb: 2 }}>
-          No items or recipes found in database. The database may need to be reset.
+          No production data found. Please check that data.json is properly configured.
         </Typography>
-        <Button variant="contained" color="error" onClick={resetDatabase} sx={{ mr: 1 }}>
-          Reset Database
-        </Button>
         <Button variant="contained" onClick={() => window.location.reload()}>
-          Retry
+          Reload Page
         </Button>
       </Box>
     );
   }
-
-  // Filter items that have recipes
-  const produceableItems = items.filter((item: Item) => 
-    recipes.some((recipe: Recipe) => 
-      recipe.outputs.some((output: { id: string; quantity: number }) => output.id === item.id)
-    )
-  );
-
-  // Get available recipes for selected item
-  const availableRecipes = selectedItem ? 
-    recipes.filter((recipe: Recipe) => 
-      recipe.outputs.some((output: { id: string; quantity: number }) => output.id === selectedItem)
-    ) : 
-    [];
 
   return (
     <Box sx={{ p: 2 }}>
@@ -238,7 +435,7 @@ export const ProductionPlanner: React.FC = () => {
                   setSelectedItem(itemId);
                   // Auto-select first available recipe
                   const firstRecipe = recipes.find((recipe: Recipe) => 
-                    recipe.outputs.some(output => output.id === itemId)
+                    Object.keys(recipe.out).includes(itemId)
                   );
                   if (firstRecipe) {
                     setSelectedRecipe(firstRecipe.id);
@@ -300,15 +497,17 @@ export const ProductionPlanner: React.FC = () => {
       </Card>
 
       {/* Production Tree */}
-      <TreeView
-        aria-label="production chain"
-        defaultExpandIcon={<ChevronRightIcon />}
-        defaultCollapseIcon={<ExpandMoreIcon />}
-        expanded={expanded}
-        onNodeToggle={handleNodeExpand}
-      >
-        {productionTree.map(node => renderTree(node, true))}
-      </TreeView>
+      <TreeErrorBoundary>
+        <TreeView
+          aria-label="production chain"
+          defaultExpandIcon={<ChevronRightIcon />}
+          defaultCollapseIcon={<ExpandMoreIcon />}
+          expanded={expanded}
+          onNodeToggle={handleNodeExpand}
+        >
+          {productionTree.map(node => renderTree(node, true))}
+        </TreeView>
+      </TreeErrorBoundary>
     </Box>
   );
 };

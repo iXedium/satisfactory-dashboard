@@ -1,26 +1,53 @@
 import { useState, useEffect } from 'react';
 import { Item } from '../db/types';
-import { getAllItems } from '../db';
+import db from '../db';
 
-export function useItems() {
+// Cache for items
+let itemsCache: Item[] | null = null;
+let itemMapCache: Map<string, Item> | null = null;
+
+export const useItems = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const fetchItems = async () => {
+    const loadItems = async () => {
       try {
-        const data = await getAllItems();
-        setItems(data);
-        setLoading(false);
+        // Use cache if available
+        if (itemsCache) {
+          setItems(itemsCache);
+          setLoading(false);
+          return;
+        }
+
+        // Use Dexie's collection caching
+        const collection = await db.items.toCollection();
+        
+        // Cache the entire collection in memory
+        itemsCache = await collection.toArray();
+        
+        // Create and cache the item map
+        itemMapCache = new Map();
+        itemsCache.forEach(item => {
+          itemMapCache!.set(item.id, item);
+        });
+
+        setItems(itemsCache);
       } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to fetch items'));
+        setError(err as Error);
+      } finally {
         setLoading(false);
       }
     };
 
-    fetchItems();
+    loadItems();
   }, []);
 
-  return { items, loading, error };
-} 
+  // Expose the item map for efficient lookups
+  const getItem = (itemId: string): Item | undefined => {
+    return itemMapCache?.get(itemId);
+  };
+
+  return { items, loading, error, getItem };
+}; 

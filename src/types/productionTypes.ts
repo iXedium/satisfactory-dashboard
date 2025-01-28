@@ -6,19 +6,26 @@ export interface Item {
   description?: string;
 }
 
+export interface Producer {
+  type: string;
+  multiplier: number;
+  icon?: string;
+}
+
 export interface Recipe {
   id: string;
   name: string;
-  producerType: string;
-  inputs: {
-    itemId: string;
-    amount: number;
-  }[];
-  outputs: {
-    itemId: string;
-    amount: number;
-  }[];
-  baseCraftTime: number;  // in seconds
+  producers: Producer[];
+  in: { [itemId: string]: number };
+  out: { [itemId: string]: number };
+  time: number;  // in seconds
+  row?: number;
+  category?: string;
+  flags?: string[];
+  usage?: string;
+  cost?: { [itemId: string]: number };
+  inputs?: { id: string; quantity: number }[];  // For UI compatibility
+  outputs?: { id: string; quantity: number }[]; // For UI compatibility
 }
 
 export interface ProductionTreeNode {

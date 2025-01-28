@@ -14,9 +14,9 @@ interface RateCalculation {
  * Calculate the base production rate for a recipe with given machine settings
  */
 export function calculateBaseRate(recipe: Recipe, machineMultiplier: number = 1): number {
-  const baseOutput = recipe.outputs.find(o => o.id === recipe.itemId);
-  if (!baseOutput) throw new Error("Invalid recipe: no matching output");
-  return (baseOutput.quantity * 60 * machineMultiplier) / recipe.time; // Items per minute
+  // Get the first output item's rate
+  const [outputId, outputQty] = Object.entries(recipe.out)[0];
+  return (outputQty * 60 * machineMultiplier) / recipe.time; // Items per minute
 }
 
 /**
@@ -40,14 +40,13 @@ export function calculateNodeRates(
   // Calculate efficiency based on total desired rate vs actual production
   const efficiency = (totalDesiredRate / totalRate) * 100;
 
-  // Calculate input requirements based on total production rate
+  // Calculate input requirements based on total production
   const inputRates: { [itemId: string]: number } = {};
-  recipe.inputs.forEach(input => {
-    const baseOutput = recipe.outputs.find(o => o.id === recipe.itemId);
-    if (!baseOutput) return;
-    
-    const inputRatePerOutput = input.quantity / baseOutput.quantity;
-    inputRates[input.id] = totalRate * inputRatePerOutput;
+  const [mainOutputId, mainOutputQty] = Object.entries(recipe.out)[0];
+  
+  Object.entries(recipe.in).forEach(([inputId, inputQty]) => {
+    const inputRatePerOutput = inputQty / mainOutputQty;
+    inputRates[inputId] = totalRate * inputRatePerOutput;
   });
 
   return {
@@ -65,17 +64,18 @@ export function calculateNodeRates(
  */
 export function updateProductionNode(
   node: ProductionTreeNode,
-  recipes: Recipe[],
-  parentRequiredRate?: number
+  recipes: Recipe[]
 ): ProductionTreeNode {
   const recipe = recipes.find(r => r.id === node.recipeId);
   if (!recipe) return node;
 
-  // Calculate rates based on parent requirements or current settings
+  // Calculate total required rate (target + excess)
+  const totalRequiredRate = node.targetRate + node.excessRate;
+
+  // Calculate rates based on total requirements
   const rates = calculateNodeRates(
     recipe,
-    parentRequiredRate ?? node.targetRate,
-    node.excessRate,
+    totalRequiredRate,
     node.producerCount,
     node.producerType.multiplier
   );
@@ -83,9 +83,7 @@ export function updateProductionNode(
   // Update node with new calculations
   const updatedNode: ProductionTreeNode = {
     ...node,
-    targetRate: rates.calculatedRate,
     actualRate: rates.totalRate,
-    excessRate: rates.totalRate - rates.calculatedRate,
     producerCount: rates.machineCount,
     efficiency: rates.efficiency,
   };
@@ -93,38 +91,32 @@ export function updateProductionNode(
   // Update input nodes with new required rates
   if (updatedNode.inputs) {
     updatedNode.inputs = updatedNode.inputs.map(input => {
-      const inputRecipe = recipes.find(r => r.outputs.some(o => o.id === input.name));
-      if (!inputRecipe || input.isByproduct) return input;
+      if (input.isByproduct) {
+        // Calculate byproduct rate based on the main production
+        const byproductQty = recipe.out[input.name];
+        if (!byproductQty) return input;
+        const byproductRate = (byproductQty * 60 * updatedNode.producerCount * updatedNode.producerType.multiplier) / recipe.time;
+        return {
+          ...input,
+          actualRate: -byproductRate, // Negative to indicate production
+        };
+      }
 
-      return updateProductionNode(input, recipes, rates.inputRates[input.name]);
+      const inputRecipe = recipes.find(r => r.out.hasOwnProperty(input.name));
+      if (!inputRecipe) return input;
+
+      const inputRequirement = recipe.in[input.name];
+      if (!inputRequirement) return input;
+
+      // Calculate required input rate based on total production
+      const [mainOutputId, mainOutputQty] = Object.entries(recipe.out)[0];
+      const requiredInputRate = (inputRequirement / mainOutputQty) * totalRequiredRate;
+      return updateProductionNode(
+        { ...input, targetRate: requiredInputRate },
+        recipes
+      );
     });
   }
-
-  // Calculate byproducts
-  const byproducts = recipe.outputs
-    .filter(output => output.id !== recipe.itemId)
-    .map(output => {
-      const byproductRate = (output.quantity * 60 * updatedNode.producerCount * updatedNode.producerType.multiplier) / recipe.time;
-      return {
-        id: `byproduct-${output.id}`,
-        recipeId: recipe.id,
-        name: output.id,
-        producerType: recipe.producers[0],
-        producerCount: 0,
-        isByproduct: true,
-        targetRate: 0,
-        actualRate: -byproductRate, // Negative to indicate production
-        excessRate: -byproductRate,
-        efficiency: 100,
-        inputs: []
-      };
-    });
-
-  // Add byproducts to inputs
-  updatedNode.inputs = [
-    ...(updatedNode.inputs?.filter(input => !input.isByproduct) ?? []),
-    ...byproducts
-  ];
 
   return updatedNode;
 } 

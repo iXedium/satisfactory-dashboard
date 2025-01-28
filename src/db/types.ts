@@ -4,18 +4,60 @@ export interface Item {
   id: string;
   name: string;
   category: string;
+  row: number;
+  stack?: number;
+  fuel?: {
+    category: string;
+    value: number;
+  };
+  belt?: {
+    speed: number;
+  };
+  pipe?: {
+    speed: number;
+  };
+  cargoWagon?: {
+    size: number;
+  };
+  fluidWagon?: {
+    capacity: number;
+  };
+  machine?: {
+    speed: number;
+    type: string;
+    usage: number;
+    modules?: number;
+  };
+  module?: {
+    speed: number;
+    consumption?: number;
+    productivity?: number;
+    limitation: string;
+  };
+}
+
+export interface Producer {
+  type: string;
+  multiplier: number;
   icon?: string;
-  isMachine?: boolean;
 }
 
 export interface Recipe {
   id: string;
-  itemId: string; // The main output item ID
   name: string;
-  time: number; // Time to produce in seconds
-  inputs: { id: string; quantity: number }[]; // List of input items and their quantities
-  outputs: { id: string; quantity: number }[]; // List of output items and their quantities
-  producers: { type: string; multiplier: number; icon?: string }[]; // Machines capable of producing this recipe
+  producers: Producer[];
+  time: number;
+  // Original format for UI compatibility
+  inputs: { id: string; quantity: number }[];
+  outputs: { id: string; quantity: number }[];
+  // New format from data.json
+  in: { [key: string]: number };
+  out: { [key: string]: number };
+  row?: number;
+  category?: string;
+  flags?: string[];
+  usage?: number;
+  cost?: number;
 }
 
 export interface DataJson {
@@ -27,7 +69,7 @@ export interface ProductionNode {
   id: string; // Unique identifier
   recipeId: string; // The ID of the recipe associated with this node
   name: string; // Name of the node (e.g., the item being produced)
-  producerType: string; // The type of machine producing this node
+  producerType: Producer; // The type of machine producing this node
   producerCount: number; // Number of machines producing this node
   isByproduct: boolean; // Whether this node is a byproduct
 }
