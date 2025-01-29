@@ -41,6 +41,106 @@ class TreeErrorBoundary extends React.Component<{ children: React.ReactNode }, {
   }
 }
 
+// Memoized Tree Item component to prevent unnecessary re-renders
+const MemoizedTreeItem = React.memo(({ 
+  node, 
+  recipes, 
+  alternateRecipes,
+  onNodeUpdate,
+  onNodeDelete,
+  findAlternateRecipes,
+  isRoot = false 
+}: {
+  node: ProductionTreeNode;
+  recipes: Recipe[];
+  alternateRecipes: Recipe[];
+  onNodeUpdate: (nodeId: string, updates: Partial<ProductionTreeNode>) => void;
+  onNodeDelete: (nodeId: string) => void;
+  findAlternateRecipes: (itemId: string, currentRecipeId?: string) => Recipe[];
+  isRoot?: boolean;
+}) => {
+  // Memoize handlers to prevent new references on every render
+  const handleUpdate = useCallback((updates: Partial<ProductionTreeNode>) => {
+    onNodeUpdate(node.id, updates);
+  }, [node.id, onNodeUpdate]);
+
+  const handleDelete = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onNodeDelete(node.id);
+  }, [node.id, onNodeDelete]);
+
+  // Memoize the node object to prevent unnecessary re-renders
+  const stableNode = useMemo(() => ({
+    ...node,
+    inputs: node.inputs || []
+  }), [
+    node.id,
+    node.recipeId,
+    node.producerCount,
+    node.producerType.multiplier,
+    node.actualRate,
+    node.excessRate,
+    node.targetRate,
+    node.machineClock
+  ]);
+
+  return (
+    <TreeItem
+      nodeId={node.id}
+      expandIcon={<ChevronRightIcon />}
+      collapseIcon={<ExpandMoreIcon />}
+      label={
+        <Box sx={{ position: 'relative' }}>
+          {isRoot && (
+            <IconButton 
+              onClick={handleDelete}
+              size="small"
+              sx={{ 
+                position: 'absolute',
+                left: -36,
+                top: '10%',
+                zIndex: 1,
+                p: 0.5,
+                bgcolor: 'action.hover',
+                '&:hover': { 
+                  bgcolor: 'action.selected',
+                  color: 'error.main'
+                }
+              }}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          )}
+          <Box sx={{ flexGrow: 1 }}>
+            <ProductionNode
+              node={stableNode}
+              recipes={recipes}
+              alternateRecipes={alternateRecipes}
+              onUpdate={handleUpdate}
+            />
+          </Box>
+        </Box>
+      }
+    >
+      {stableNode.inputs
+        ?.filter(input => input && !input.isByproduct)
+        .map(input => (
+          <MemoizedTreeItem
+            key={input.id}
+            node={input}
+            recipes={recipes}
+            alternateRecipes={findAlternateRecipes(input.name, input.recipeId)}
+            onNodeUpdate={onNodeUpdate}
+            onNodeDelete={onNodeDelete}
+            findAlternateRecipes={findAlternateRecipes}
+          />
+        ))}
+    </TreeItem>
+  );
+});
+
+MemoizedTreeItem.displayName = 'MemoizedTreeItem';
+
 export const ProductionPlanner: React.FC = () => {
   const { 
     items, 
@@ -100,114 +200,72 @@ export const ProductionPlanner: React.FC = () => {
   };
 
   const handleNodeUpdate = useCallback((nodeId: string, updates: Partial<ProductionTreeNode>) => {
-    // Keep track of the current expanded state before the update
-    const wasExpanded = new Set(expanded);
-
     setProductionTree(prevTree => {
-      const updateNode = (nodes: ProductionTreeNode[], parentId: string = ''): ProductionTreeNode[] => {
-        return nodes.map(node => {
-          if (!node || !node.id) return node;
-
+      // Find the path to the target node and its parent chain
+      const findNodePath = (nodes: ProductionTreeNode[], path: ProductionTreeNode[] = []): ProductionTreeNode[] | null => {
+        for (const node of nodes) {
           if (node.id === nodeId) {
-            const updatedNode = { ...node, ...updates };
-            
-            // If recipe changed, we need to rebuild the input chain
-            if (updates.recipeId && updates.recipeId !== node.recipeId) {
-              const recipe = getRecipe(updates.recipeId);
-              if (!recipe) return updatedNode;
-
-              // Create new input nodes with unique IDs based on parent
-              const timestamp = Date.now();
-              let nodeCounter = 0;
-
-              const createInputNodes = (
-                recipe: Recipe, 
-                parentRate: number,
-                parentNodeId: string,
-                processedItems: Set<string> = new Set()
-              ): ProductionTreeNode[] => {
-                const nodes: ProductionTreeNode[] = [];
-
-                const inputs = Object.entries(recipe.in).map(([id, quantity]) => ({ id, quantity }));
-                for (const input of inputs) {
-                  if (processedItems.has(input.id)) continue;
-
-                  const inputRecipes = getRecipesForItem(input.id);
-                  if (!inputRecipes.length) continue;
-
-                  const inputRecipe = inputRecipes[0];
-                  const mainOutput = Object.entries(recipe.out)[0];
-                  const inputRate = (input.quantity / mainOutput[1]) * parentRate;
-                  processedItems.add(input.id);
-
-                  const newNodeId = `${parentNodeId}-${nodeCounter++}`;
-                  const inputNode: ProductionTreeNode = {
-                    id: newNodeId,
-                    recipeId: inputRecipe.id,
-                    name: input.id,
-                    producerType: {
-                      ...inputRecipe.producers[0],
-                      multiplier: 1
-                    },
-                    producerCount: 1,
-                    isByproduct: false,
-                    targetRate: inputRate,
-                    actualRate: 0,
-                    excessRate: 0,
-                    efficiency: 100,
-                    machineClock: 100,
-                    inputs: []
-                  };
-
-                  inputNode.inputs = createInputNodes(
-                    inputRecipe, 
-                    inputRate,
-                    newNodeId,
-                    processedItems
-                  );
-                  nodes.push(inputNode);
-                }
-
-                return nodes;
-              };
-
-              // Replace the input chain with new nodes
-              updatedNode.inputs = createInputNodes(recipe, updatedNode.targetRate, updatedNode.id);
-
-              // If this branch was expanded, keep it expanded
-              if (wasExpanded.has(nodeId)) {
-                // Collect all new node IDs
-                const newIds = new Set<string>();
-                const collectNewIds = (node: ProductionTreeNode) => {
-                  if (node.id) newIds.add(node.id);
-                  node.inputs?.forEach(collectNewIds);
-                };
-                collectNewIds(updatedNode);
-                
-                // Update expanded state to include all new nodes
-                setExpanded(prev => [...new Set([...prev, ...newIds])]);
-              }
-            }
-
-            // Update rates for this node and its inputs
-            return updateProductionNode(updatedNode, recipes);
+            return [...path, node];
           }
-
           if (node.inputs) {
-            return { ...node, inputs: updateNode(node.inputs, node.id) };
+            const result = findNodePath(node.inputs, [...path, node]);
+            if (result) return result;
+          }
+        }
+        return null;
+      };
+
+      // Update a node and all its children
+      const updateNodeAndChildren = (node: ProductionTreeNode): ProductionTreeNode => {
+        if (node.id === nodeId) {
+          const updatedNode = { ...node, ...updates };
+          return updateProductionNode(updatedNode, recipes);
+        }
+        if (node.inputs) {
+          const updatedInputs = node.inputs.map(input => updateNodeAndChildren(input));
+          return updateProductionNode({ ...node, inputs: updatedInputs }, recipes);
+        }
+        return node;
+      };
+
+      // Update the entire tree
+      const updateTree = (nodes: ProductionTreeNode[]): ProductionTreeNode[] => {
+        const nodePath = findNodePath(nodes);
+        if (!nodePath) return nodes;
+
+        return nodes.map(node => {
+          // If this is part of the path to our target node
+          if (nodePath.some(pathNode => pathNode.id === node.id)) {
+            return updateNodeAndChildren(node);
           }
           return node;
-        }).filter(Boolean);
+        });
       };
-      return updateNode(prevTree);
-    });
-  }, [recipes, getRecipe, getRecipesForItem, expanded]);
 
-  const findAlternateRecipes = useCallback((itemId: string): Recipe[] => {
+      return updateTree(prevTree);
+    });
+  }, [recipes]);
+
+  const handleNodeDelete = useCallback((nodeId: string) => {
+    setProductionTree(prev => prev.filter(node => node.id !== nodeId));
+  }, []);
+
+  const findAlternateRecipes = useCallback((itemId: string, currentRecipeId?: string): Recipe[] => {
     // Find all recipes that produce this item as their primary output
-    return recipes.filter((recipe: Recipe) => 
-      Object.keys(recipe.out).includes(itemId)
-    );
+    const alternates = recipes.filter((recipe: Recipe) => {
+      const mainOutput = Object.entries(recipe.out)[0];
+      return mainOutput[0] === itemId;
+    });
+
+    // If we have a current recipe and it's not in the alternates, add it
+    if (currentRecipeId) {
+      const currentRecipe = recipes.find(r => r.id === currentRecipeId);
+      if (currentRecipe && !alternates.some(r => r.id === currentRecipeId)) {
+        alternates.push(currentRecipe);
+      }
+    }
+
+    return alternates;
   }, [recipes]);
 
   // Function to get all node IDs recursively
@@ -342,61 +400,31 @@ export const ProductionPlanner: React.FC = () => {
     setExpanded(prev => [...new Set([...prev, ...expandedNodes])]);
   }, [selectedRecipe, selectedItem, targetRate, recipes, getRecipe, getRecipesForItem]);
 
-  // Add delete node functionality
-  const handleDeleteNode = (nodeId: string) => {
-    setProductionTree(prev => prev.filter(node => node.id !== nodeId));
-  };
-
-  const renderTree = (node: ProductionTreeNode, isRoot: boolean = false) => {
-    if (!node || !node.id || !node.name || !validNodeIds.has(node.id)) return null;
-
-    return (
-      <TreeItem
-        key={`tree-${node.id}`}
-        nodeId={node.id}
-        disabled={false}
-        expandIcon={<ChevronRightIcon />}
-        collapseIcon={<ExpandMoreIcon />}
-        label={
-          <Box sx={{ position: 'relative' }}>
-            {isRoot && (
-              <IconButton 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteNode(node.id);
-                }}
-                size="small"
-                sx={{ 
-                  position: 'absolute',
-                  left: -36,
-                  top: '10%',
-                  zIndex: 1,
-                  p: 0.5,
-                  bgcolor: 'action.hover',
-                  '&:hover': { 
-                    bgcolor: 'action.selected',
-                    color: 'error.main'
-                  }
-                }}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            )}
-            <Box sx={{ flexGrow: 1 }}>
-              <ProductionNode
-                node={node}
-                recipes={recipes}
-                alternateRecipes={findAlternateRecipes(node.name)}
-                onUpdate={(updates) => handleNodeUpdate(node.id, updates)}
-              />
-            </Box>
-          </Box>
-        }
+  // Memoize the tree rendering to prevent unnecessary re-renders
+  const renderTree = useMemo(() => (
+    <TreeErrorBoundary>
+      <TreeView
+        aria-label="production chain"
+        defaultExpandIcon={<ChevronRightIcon />}
+        defaultCollapseIcon={<ExpandMoreIcon />}
+        expanded={expanded}
+        onNodeToggle={handleNodeExpand}
       >
-        {node.inputs?.filter(input => input && !input.isByproduct && validNodeIds.has(input.id)).map(input => renderTree(input))}
-      </TreeItem>
-    );
-  };
+        {productionTree.map(node => (
+          <MemoizedTreeItem
+            key={node.id}
+            node={node}
+            recipes={recipes}
+            alternateRecipes={findAlternateRecipes(node.name, node.recipeId)}
+            onNodeUpdate={handleNodeUpdate}
+            onNodeDelete={handleNodeDelete}
+            findAlternateRecipes={findAlternateRecipes}
+            isRoot
+          />
+        ))}
+      </TreeView>
+    </TreeErrorBoundary>
+  ), [productionTree, expanded, recipes, findAlternateRecipes, handleNodeUpdate, handleNodeDelete]);
 
   if (loading) {
     return (
@@ -512,17 +540,7 @@ export const ProductionPlanner: React.FC = () => {
       </Card>
 
       {/* Production Tree */}
-      <TreeErrorBoundary>
-        <TreeView
-          aria-label="production chain"
-          defaultExpandIcon={<ChevronRightIcon />}
-          defaultCollapseIcon={<ExpandMoreIcon />}
-          expanded={expanded}
-          onNodeToggle={handleNodeExpand}
-        >
-          {productionTree.map(node => renderTree(node, true))}
-        </TreeView>
-      </TreeErrorBoundary>
+      {renderTree}
     </Box>
   );
 };
