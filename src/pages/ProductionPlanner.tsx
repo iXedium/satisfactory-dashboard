@@ -72,7 +72,10 @@ const MemoizedTreeItem = React.memo(({
   // Memoize the node object to prevent unnecessary re-renders
   const stableNode = useMemo(() => ({
     ...node,
-    inputs: node.inputs || []
+    inputs: node.inputs?.map(input => ({
+      ...input,
+      inputs: input.inputs || []
+    })) || []
   }), [
     node.id,
     node.recipeId,
@@ -81,7 +84,18 @@ const MemoizedTreeItem = React.memo(({
     node.actualRate,
     node.excessRate,
     node.targetRate,
-    node.machineClock
+    node.machineClock,
+    // Add inputs to the dependency array
+    node.inputs?.map(input => [
+      input.id,
+      input.recipeId,
+      input.producerCount,
+      input.producerType.multiplier,
+      input.actualRate,
+      input.excessRate,
+      input.targetRate,
+      input.machineClock
+    ]).flat()
   ]);
 
   return (
@@ -137,6 +151,39 @@ const MemoizedTreeItem = React.memo(({
         ))}
     </TreeItem>
   );
+}, (prevProps, nextProps) => {
+  // Deep comparison for the node and its inputs
+  const nodeChanged = 
+    prevProps.node.id !== nextProps.node.id ||
+    prevProps.node.recipeId !== nextProps.node.recipeId ||
+    prevProps.node.producerCount !== nextProps.node.producerCount ||
+    prevProps.node.producerType.multiplier !== nextProps.node.producerType.multiplier ||
+    prevProps.node.actualRate !== nextProps.node.actualRate ||
+    prevProps.node.excessRate !== nextProps.node.excessRate ||
+    prevProps.node.targetRate !== nextProps.node.targetRate ||
+    prevProps.node.machineClock !== nextProps.node.machineClock;
+
+  // Check if inputs changed
+  const inputsChanged = prevProps.node.inputs?.some((input, index) => {
+    const nextInput = nextProps.node.inputs?.[index];
+    if (!nextInput) return true;
+    return (
+      input.id !== nextInput.id ||
+      input.recipeId !== nextInput.recipeId ||
+      input.producerCount !== nextInput.producerCount ||
+      input.producerType.multiplier !== nextInput.producerType.multiplier ||
+      input.actualRate !== nextInput.actualRate ||
+      input.excessRate !== nextInput.excessRate ||
+      input.targetRate !== nextInput.targetRate ||
+      input.machineClock !== nextInput.machineClock
+    );
+  });
+
+  // Return true if nothing changed (skip re-render)
+  return !nodeChanged && 
+         !inputsChanged && 
+         prevProps.recipes === nextProps.recipes &&
+         prevProps.alternateRecipes === nextProps.alternateRecipes;
 });
 
 MemoizedTreeItem.displayName = 'MemoizedTreeItem';
@@ -212,11 +259,14 @@ export const ProductionPlanner: React.FC = () => {
         }
       }
     }
+    console.log('❌ findNodePath: No path found for node:', targetId);
     return null;
   }, []);
 
   // Pure function to update a node and its children
   const updateNodeAndRates = useCallback((node: ProductionTreeNode, changes: Partial<ProductionTreeNode>): ProductionTreeNode => {
+    console.log('🔄 updateNodeAndRates:', { nodeId: node.id, changes });
+    
     // Create new node with changes
     const updatedNode = {
       ...node,
@@ -226,7 +276,14 @@ export const ProductionPlanner: React.FC = () => {
     };
     
     // Calculate new rates for this node and its subtree
-    return updateProductionNode(updatedNode, recipes);
+    const result = updateProductionNode(updatedNode, recipes);
+    console.log('✅ updateNodeAndRates result:', { 
+      nodeId: result.id, 
+      actualRate: result.actualRate,
+      targetRate: result.targetRate,
+      isNewRef: result !== node 
+    });
+    return result;
   }, [recipes]);
 
   // Pure function to update tree following a path
@@ -236,37 +293,63 @@ export const ProductionPlanner: React.FC = () => {
     targetId: string,
     changes: Partial<ProductionTreeNode>
   ): ProductionTreeNode[] => {
-    if (!path.length) return nodes;
+    if (!path.length) {
+      console.log('❌ updateTreeAlongPath: Empty path');
+      return nodes;
+    }
+
+    console.log('🌳 updateTreeAlongPath:', { 
+      path, 
+      targetId,
+      changes,
+      nodesCount: nodes.length
+    });
+
+    // Convert path to Set for O(1) lookup
+    const pathSet = new Set(path);
 
     return nodes.map(node => {
       // If this is our target node, apply changes and update rates
       if (node.id === targetId) {
+        console.log('🎯 Found target node:', node.id);
         return updateNodeAndRates(node, changes);
       }
 
       // Check if this node is in the path to the target
-      const isInPath = path.includes(node.id);
+      const isInPath = pathSet.has(node.id);
+      if (isInPath) {
+        console.log('📍 Node in path:', node.id);
+      }
       
       // If node has inputs, we need to check them for updates
       if (node.inputs?.length) {
         let anyChildUpdated = false;
         const updatedInputs = node.inputs.map(input => {
-          const updatedInput = updateTreeAlongPath(
-            [input],
-            path,
-            targetId,
-            changes
-          )[0];
-          
-          if (updatedInput !== input) {
-            anyChildUpdated = true;
+          // Only recurse if the input's ID is in our path or could contain our target
+          if (pathSet.has(input.id) || input.id === targetId) {
+            console.log('👶 Processing child node:', input.id);
+            const updatedInput = updateTreeAlongPath(
+              [input],
+              path,
+              targetId,
+              changes
+            )[0];
+            
+            if (updatedInput !== input) {
+              console.log('✨ Child node updated:', input.id);
+              anyChildUpdated = true;
+            }
+            return updatedInput;
           }
-          return updatedInput;
+          return input;
         });
 
-        // Only create new node reference if this node is in the path
-        // or if any of its children were updated
-        if (isInPath || anyChildUpdated) {
+        // Create new node reference if:
+        // 1. This node is in the path to the target
+        // 2. Any of its children were updated
+        // 3. We're updating inputs array
+        if (isInPath || anyChildUpdated || updatedInputs !== node.inputs) {
+          console.log('🔄 Creating new node reference:', node.id);
           const newNode = {
             ...node,
             inputs: updatedInputs
@@ -282,13 +365,26 @@ export const ProductionPlanner: React.FC = () => {
   }, [recipes, updateNodeAndRates]);
 
   const handleNodeUpdate = useCallback((nodeId: string, updates: Partial<ProductionTreeNode>) => {
+    console.log('🎬 handleNodeUpdate:', { nodeId, updates });
+    
     setProductionTree(prevTree => {
       // Find the path from root to target node
       const path = findNodePath(prevTree, nodeId);
-      if (!path) return prevTree;
+      console.log('📍 Found path:', path);
+      
+      if (!path) {
+        console.log('❌ No path found for node:', nodeId);
+        return prevTree;
+      }
 
       // Update the tree with new references along the path
       const updatedTree = updateTreeAlongPath(prevTree, path, nodeId, updates);
+      
+      console.log('🌳 Tree updated:', { 
+        prevNodeCount: prevTree.length,
+        newNodeCount: updatedTree.length,
+        isNewRef: updatedTree !== prevTree
+      });
 
       // Return new tree reference
       return updatedTree;
