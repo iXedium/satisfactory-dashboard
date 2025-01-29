@@ -267,9 +267,7 @@ export const ProductionPlanner: React.FC = () => {
     // Create new node with changes
     const updatedNode = {
       ...node,
-      ...changes,
-      // Create new inputs array if it exists
-      inputs: node.inputs ? [...node.inputs] : undefined
+      ...changes
     };
     
     console.log('🌳 updateNodeAndRates:', {
@@ -292,7 +290,7 @@ export const ProductionPlanner: React.FC = () => {
 
     // If this node has inputs, update their rates based on this node's new rates
     if (nodeWithRates.inputs?.length) {
-      nodeWithRates.inputs = nodeWithRates.inputs.map(input => {
+      const updatedInputs = nodeWithRates.inputs.map(input => {
         const updatedInput = updateProductionNode(input, recipes);
         console.log('🌳 Updated input node:', {
           parent: node.name,
@@ -310,6 +308,12 @@ export const ProductionPlanner: React.FC = () => {
         });
         return updatedInput;
       });
+
+      // Return new node with updated inputs
+      return {
+        ...nodeWithRates,
+        inputs: updatedInputs
+      };
     }
 
     return nodeWithRates;
@@ -350,6 +354,8 @@ export const ProductionPlanner: React.FC = () => {
           node: node.name,
           targetId
         });
+        
+        // Create new inputs array with updated nodes
         const updatedInputs = node.inputs.map(input => {
           if (input.id === targetId) {
             return updateNodeAndRates(input, changes);

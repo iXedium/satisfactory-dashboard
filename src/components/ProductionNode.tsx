@@ -197,19 +197,16 @@ const ProductionNodeContent: React.FC<ProductionNodeProps> = ({
   const handleMaxExcess = useCallback(() => {
     if (!recipe) return;
 
-    console.log('🔍 MaxExcess clicked:', {
+    // Get the latest values directly from the node prop
+    console.log('🔍 MaxExcess Values:', {
       node: node.name,
-      currentRates: calculatedRates,
-      nodeState: {
-        targetRate: node.targetRate,
-        actualRate: node.actualRate,
-        excessRate: node.excessRate
-      }
+      targetRate: node.targetRate,
+      actualRate: node.actualRate,
+      maxRate: calculatedRates.maxRate
     });
 
     // If we're already at or above 100% clock, do nothing
     if (calculatedRates.machineClock >= 100) {
-      console.log('⚡ Already at max clock, no excess needed');
       return;
     }
 
@@ -219,12 +216,19 @@ const ProductionNodeContent: React.FC<ProductionNodeProps> = ({
     console.log('📊 MaxExcess calculation:', {
       maxRate: calculatedRates.maxRate,
       actualRate: node.actualRate,
-      neededExcess,
-      expectedClock: 100
+      neededExcess
     });
 
     onUpdate({ excessRate: neededExcess });
-  }, [recipe, node.name, node.actualRate, calculatedRates, onUpdate]);
+  }, [
+    recipe,
+    node.name,
+    node.targetRate,
+    node.actualRate,
+    calculatedRates.maxRate,
+    calculatedRates.machineClock,
+    onUpdate
+  ]);
 
   const handleMachineCountChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(event.target.value) || 1;
