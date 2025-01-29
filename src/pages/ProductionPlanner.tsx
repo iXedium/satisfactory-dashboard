@@ -236,35 +236,47 @@ export const ProductionPlanner: React.FC = () => {
     targetId: string,
     changes: Partial<ProductionTreeNode>
   ): ProductionTreeNode[] => {
-    // Create a new array reference
-    return nodes.map(node => {
-      // If this node isn't in our path, preserve its reference
-      if (node.id !== path[0]) {
-        return node;
-      }
+    if (!path.length) return nodes;
 
+    return nodes.map(node => {
       // If this is our target node, apply changes and update rates
       if (node.id === targetId) {
         return updateNodeAndRates(node, changes);
       }
 
-      // This node is in the path but isn't the target
-      // Create a new reference for this node
-      const newNode = { ...node };
+      // Check if this node is in the path to the target
+      const isInPath = path.includes(node.id);
+      
+      // If node has inputs, we need to check them for updates
+      if (node.inputs?.length) {
+        let anyChildUpdated = false;
+        const updatedInputs = node.inputs.map(input => {
+          const updatedInput = updateTreeAlongPath(
+            [input],
+            path,
+            targetId,
+            changes
+          )[0];
+          
+          if (updatedInput !== input) {
+            anyChildUpdated = true;
+          }
+          return updatedInput;
+        });
 
-      // If this node has inputs, recursively update the matching input
-      if (newNode.inputs) {
-        const restOfPath = path.slice(1);
-        newNode.inputs = updateTreeAlongPath(
-          newNode.inputs,
-          restOfPath,
-          targetId,
-          changes
-        );
-        // After updating children, recalculate rates for this node
-        return updateProductionNode(newNode, recipes);
+        // Only create new node reference if this node is in the path
+        // or if any of its children were updated
+        if (isInPath || anyChildUpdated) {
+          const newNode = {
+            ...node,
+            inputs: updatedInputs
+          };
+          // Recalculate rates for this node since children changed
+          return updateProductionNode(newNode, recipes);
+        }
       }
 
+      // Return original node if no changes were needed
       return node;
     });
   }, [recipes, updateNodeAndRates]);
