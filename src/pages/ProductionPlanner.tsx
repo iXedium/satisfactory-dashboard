@@ -369,8 +369,7 @@ export const ProductionPlanner: React.FC = () => {
                 sx={{ 
                   position: 'absolute',
                   left: -36,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
+                  top: '10%',
                   zIndex: 1,
                   p: 0.5,
                   bgcolor: 'action.hover',
