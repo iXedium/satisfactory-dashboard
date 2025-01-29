@@ -201,48 +201,79 @@ export const ProductionPlanner: React.FC = () => {
 
   const handleNodeUpdate = useCallback((nodeId: string, updates: Partial<ProductionTreeNode>) => {
     setProductionTree(prevTree => {
-      // Find the path to the target node and its parent chain
-      const findNodePath = (nodes: ProductionTreeNode[], path: ProductionTreeNode[] = []): ProductionTreeNode[] | null => {
+      // Helper to find path from root to target node
+      const findNodePath = (nodes: ProductionTreeNode[], targetId: string): string[] | null => {
         for (const node of nodes) {
-          if (node.id === nodeId) {
-            return [...path, node];
+          if (node.id === targetId) {
+            return [node.id];
           }
           if (node.inputs) {
-            const result = findNodePath(node.inputs, [...path, node]);
-            if (result) return result;
+            const childPath = findNodePath(node.inputs, targetId);
+            if (childPath) {
+              return [node.id, ...childPath];
+            }
           }
         }
         return null;
       };
 
-      // Update a node and all its children
-      const updateNodeAndChildren = (node: ProductionTreeNode): ProductionTreeNode => {
-        if (node.id === nodeId) {
-          const updatedNode = { ...node, ...updates };
-          return updateProductionNode(updatedNode, recipes);
+      // Helper to update a single node and its children
+      const updateNodeAndChildren = (node: ProductionTreeNode, changes: Partial<ProductionTreeNode>): ProductionTreeNode => {
+        // Create new node with changes
+        const updatedNode = {
+          ...node,
+          ...changes
+        };
+
+        // If this node has inputs, create new copies of them with updated rates
+        if (updatedNode.inputs) {
+          updatedNode.inputs = updatedNode.inputs.map(input => ({
+            ...input,
+            inputs: input.inputs ? [...input.inputs] : []
+          }));
         }
-        if (node.inputs) {
-          const updatedInputs = node.inputs.map(input => updateNodeAndChildren(input));
-          return updateProductionNode({ ...node, inputs: updatedInputs }, recipes);
-        }
-        return node;
+
+        // Calculate new rates for this node and its entire subtree
+        return updateProductionNode(updatedNode, recipes);
       };
 
-      // Update the entire tree
-      const updateTree = (nodes: ProductionTreeNode[]): ProductionTreeNode[] => {
-        const nodePath = findNodePath(nodes);
-        if (!nodePath) return nodes;
+      // Find the path to the target node
+      const pathToNode = findNodePath(prevTree, nodeId);
+      if (!pathToNode) return prevTree;
 
-        return nodes.map(node => {
-          // If this is part of the path to our target node
-          if (nodePath.some(pathNode => pathNode.id === node.id)) {
-            return updateNodeAndChildren(node);
+      // Create a new copy of the tree
+      return prevTree.map(rootNode => {
+        // If this root node isn't in our path, return it unchanged
+        if (rootNode.id !== pathToNode[0]) {
+          return rootNode;
+        }
+
+        // Helper to update a node in the path
+        const updateNodeInPath = (node: ProductionTreeNode, path: string[], index: number): ProductionTreeNode => {
+          // Create a new reference for this node
+          const newNode = { ...node };
+
+          // If this is our target node, apply the updates
+          if (index === path.length - 1) {
+            return updateNodeAndChildren(newNode, updates);
           }
-          return node;
-        });
-      };
 
-      return updateTree(prevTree);
+          // Otherwise, we need to update one of its children
+          // Create a new inputs array with updated child
+          newNode.inputs = newNode.inputs?.map(input => {
+            if (input.id === path[index + 1]) {
+              return updateNodeInPath(input, path, index + 1);
+            }
+            return input;
+          }) || [];
+
+          // Recalculate rates for this node since a child changed
+          return updateProductionNode(newNode, recipes);
+        };
+
+        // Start the update from the root node
+        return updateNodeInPath(rootNode, pathToNode, 0);
+      });
     });
   }, [recipes]);
 
