@@ -1,6 +1,6 @@
 // Filename: src/components/ProductionNode.tsx
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Card, CardContent, Grid, TextField, Select, MenuItem, Typography, SelectChangeEvent, useTheme, Box, IconButton } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 import SpeedIcon from '@mui/icons-material/Speed';
@@ -40,112 +40,16 @@ const cleanupMachineName = (name: string) => {
   return cleaned;
 };
 
-export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({ 
-  node, 
-  recipes,
-  alternateRecipes,
-  onUpdate 
-}) => {
-  const { items } = useStaticData();
-  const theme = useTheme();
-  const item = items.find(i => i.id === node.name);
-  const recipe = recipes.find(r => r.id === node.recipeId);
-
-  const getMachineClockColor = (clock: number) => {
-    if (Math.abs(clock - 100) < 0.01) return theme.palette.machineStates.optimal;
-    return clock < 100 ? theme.palette.machineStates.underclocked : theme.palette.machineStates.overclocked;
-  };
-
-  const calculateMachineClock = () => {
-    if (!recipe) return 0;
-    const totalRate = node.actualRate + node.excessRate;
-    const nominalRate = (60 / recipe.time) * recipe.out[node.name] * node.producerType.multiplier;
-    return node.producerCount > 0 ? (totalRate / node.producerCount / nominalRate) * 100 : 0;
-  };
-
-  const machineClock = calculateMachineClock();
-
-  const handleClockClick = (event: React.MouseEvent, clockValue: number) => {
-    event.stopPropagation();
-    const normalizedValue = (clockValue / 100).toFixed(5);
-    navigator.clipboard.writeText(normalizedValue);
-  };
-
-  const handleExcessRateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(event.target.value) || 0;
-    onUpdate({ excessRate: value });
-  };
-
-  const handleClearExcess = () => {
-    onUpdate({ excessRate: 0 });
-  };
-
-  const handleMaxExcess = () => {
-    // Calculate excess needed to reach 100% clock
-    const recipe = recipes.find(r => r.id === node.recipeId);
-    if (!recipe) return;
-    
-    const targetRate = node.producerCount * (60 / recipe.time) * recipe.out[node.name] * node.producerType.multiplier;
-    const excessNeeded = targetRate - node.actualRate;
-    onUpdate({ excessRate: Math.max(0, excessNeeded) });
-  };
-
-  const handleMachineCountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(event.target.value) || 1;
-    onUpdate({ producerCount: value });
-  };
-
-  const handleRecipeChange = (event: SelectChangeEvent<string>) => {
-    const recipeId = event.target.value;
-    const recipe = recipes.find(r => r.id === recipeId);
-    if (!recipe) return;
-    
-    onUpdate({ 
-      recipeId,
-      producerType: recipe.producers[0]
-    });
-  };
-
-  const handleMultiplierChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(event.target.value) || 1;
-    onUpdate({ 
-      producerType: {
-        ...node.producerType,
-        multiplier: Math.max(1, value)
-      }
-    });
-  };
-
-  const handleMultiplierAdjust = useCallback((increase: boolean) => {
-    const current = node.producerType.multiplier;
-    const newValue = increase 
-      ? current * 2 
-      : current / 2;
-    onUpdate({ 
-      producerType: {
-        ...node.producerType,
-        multiplier: Math.max(1, newValue)
-      }
-    });
-  }, [node.producerType, onUpdate]);
-
-  const handleMachineAdjust = useCallback((increase: boolean) => {
-    const newValue = increase 
-      ? node.producerCount + 1 
-      : Math.max(1, node.producerCount - 1);
-    onUpdate({ producerCount: newValue });
-  }, [node.producerCount, onUpdate]);
-
-  const InputWithButtons: React.FC<InputWithButtonsProps> = ({ 
-    value, 
-    onChange, 
-    onIncrease, 
-    onDecrease, 
-    label, 
-    step = 0.1,
-    leftButton = <RemoveIcon fontSize="small" />,
-    rightButton = <AddIcon fontSize="small" />
-  }) => (
+const InputWithButtons: React.FC<InputWithButtonsProps> = React.memo(({ 
+  value, 
+  onChange, 
+  onIncrease, 
+  onDecrease, 
+  label, 
+  step = 0.1,
+  leftButton = <RemoveIcon fontSize="small" />,
+  rightButton = <AddIcon fontSize="small" />
+}) => (
     <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
       <IconButton
         size="small"
@@ -201,7 +105,109 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
         {rightButton}
       </IconButton>
     </Box>
-  );
+  ), (prevProps, nextProps) => {
+    return prevProps.value === nextProps.value &&
+           prevProps.label === nextProps.label &&
+           prevProps.step === nextProps.step;
+  });
+
+InputWithButtons.displayName = 'InputWithButtons';
+
+const ProductionNodeContent: React.FC<ProductionNodeProps> = ({ 
+  node, 
+  recipes,
+  alternateRecipes,
+  onUpdate 
+}) => {
+  const { items } = useStaticData();
+  const theme = useTheme();
+  
+  // Memoize item and recipe lookups
+  const item = useMemo(() => items.find(i => i.id === node.name), [items, node.name]);
+  const recipe = useMemo(() => recipes.find(r => r.id === node.recipeId), [recipes, node.recipeId]);
+
+  // Memoize machine clock calculation
+  const { machineClock, totalRate } = useMemo(() => {
+    if (!recipe) return { machineClock: 0, totalRate: 0 };
+    const total = node.actualRate + node.excessRate;
+    const nominalRate = (60 / recipe.time) * recipe.out[node.name] * node.producerType.multiplier;
+    const clock = node.producerCount > 0 ? (total / node.producerCount / nominalRate) * 100 : 0;
+    return { machineClock: clock, totalRate: total };
+  }, [recipe, node.actualRate, node.excessRate, node.producerCount, node.producerType.multiplier, node.name]);
+
+  // Memoize handlers
+  const handleClockClick = useCallback((event: React.MouseEvent) => {
+    event.stopPropagation();
+    const normalizedValue = (machineClock / 100).toFixed(5);
+    navigator.clipboard.writeText(normalizedValue);
+  }, [machineClock]);
+
+  const handleExcessRateChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(event.target.value) || 0;
+    onUpdate({ excessRate: value });
+  }, [onUpdate]);
+
+  const handleClearExcess = useCallback(() => {
+    onUpdate({ excessRate: 0 });
+  }, [onUpdate]);
+
+  const handleMaxExcess = useCallback(() => {
+    if (!recipe) return;
+    const targetRate = node.producerCount * (60 / recipe.time) * recipe.out[node.name] * node.producerType.multiplier;
+    const excessNeeded = targetRate - node.actualRate;
+    onUpdate({ excessRate: Math.max(0, excessNeeded) });
+  }, [recipe, node.producerCount, node.actualRate, node.producerType.multiplier, node.name, onUpdate]);
+
+  const handleMachineCountChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(event.target.value) || 1;
+    onUpdate({ producerCount: value });
+  }, [onUpdate]);
+
+  const handleRecipeChange = useCallback((event: SelectChangeEvent<string>) => {
+    const recipeId = event.target.value;
+    const selectedRecipe = recipes.find(r => r.id === recipeId);
+    if (!selectedRecipe) return;
+    onUpdate({ 
+      recipeId,
+      producerType: selectedRecipe.producers[0]
+    });
+  }, [recipes, onUpdate]);
+
+  const handleMultiplierChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(event.target.value) || 1;
+    onUpdate({ 
+      producerType: {
+        ...node.producerType,
+        multiplier: Math.max(1, value)
+      }
+    });
+  }, [node.producerType, onUpdate]);
+
+  const handleMultiplierAdjust = useCallback((increase: boolean) => {
+    const current = node.producerType.multiplier;
+    const newValue = increase 
+      ? current * 2 
+      : current / 2;
+    onUpdate({ 
+      producerType: {
+        ...node.producerType,
+        multiplier: Math.max(1, newValue)
+      }
+    });
+  }, [node.producerType, onUpdate]);
+
+  const handleMachineAdjust = useCallback((increase: boolean) => {
+    const newValue = increase 
+      ? node.producerCount + 1 
+      : Math.max(1, node.producerCount - 1);
+    onUpdate({ producerCount: newValue });
+  }, [node.producerCount, onUpdate]);
+
+  // Memoize color getter
+  const clockColor = useMemo(() => {
+    if (Math.abs(machineClock - 100) < 0.01) return theme.palette.machineStates.optimal;
+    return machineClock < 100 ? theme.palette.machineStates.underclocked : theme.palette.machineStates.overclocked;
+  }, [machineClock, theme.palette.machineStates]);
 
   return node.isByproduct ? (
     // Byproduct Node
@@ -266,7 +272,7 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
               </Typography>
               <Box 
                 component="div" 
-                onClick={(e) => handleClockClick(e, machineClock)}
+                onClick={(e) => handleClockClick(e)}
                 sx={{ 
                   cursor: 'pointer',
                   py: 0.5,
@@ -281,7 +287,7 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
                 <Typography 
                   variant="body2" 
                   sx={{ 
-                    color: getMachineClockColor(machineClock),
+                    color: clockColor,
                     fontWeight: 500
                   }}
                 >
@@ -349,6 +355,20 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
       </CardContent>
     </Card>
   );
-});
+};
 
-ProductionNode.displayName = 'ProductionNode';
+ProductionNodeContent.displayName = 'ProductionNodeContent';
+
+// Wrap the entire component with memo and a proper comparison function
+export const ProductionNode = React.memo(ProductionNodeContent, (prevProps, nextProps) => {
+  // Only re-render if these specific properties change
+  return prevProps.node.id === nextProps.node.id &&
+         prevProps.node.recipeId === nextProps.node.recipeId &&
+         prevProps.node.producerCount === nextProps.node.producerCount &&
+         prevProps.node.producerType.multiplier === nextProps.node.producerType.multiplier &&
+         prevProps.node.actualRate === nextProps.node.actualRate &&
+         prevProps.node.excessRate === nextProps.node.excessRate &&
+         prevProps.node.targetRate === nextProps.node.targetRate &&
+         prevProps.recipes === nextProps.recipes &&
+         prevProps.alternateRecipes === nextProps.alternateRecipes;
+});
