@@ -4,6 +4,8 @@ import React from 'react';
 import { Card, CardContent, Grid, TextField, Select, MenuItem, Typography, SelectChangeEvent, useTheme, Box, IconButton } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 import SpeedIcon from '@mui/icons-material/Speed';
+import AddIcon from '@mui/icons-material/Add';
+import RemoveIcon from '@mui/icons-material/Remove';
 import { ProductionTreeNode } from '../types/productionTypes';
 import { Recipe } from '../db/types';
 import { useStaticData } from '../hooks/useStaticData';
@@ -13,6 +15,17 @@ interface ProductionNodeProps {
   recipes: Recipe[];
   alternateRecipes: Recipe[];
   onUpdate: (updates: Partial<ProductionTreeNode>) => void;
+}
+
+interface InputWithButtonsProps {
+  value: number;
+  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onIncrease: () => void;
+  onDecrease: () => void;
+  label: string;
+  step?: number;
+  leftButton?: React.ReactNode;
+  rightButton?: React.ReactNode;
 }
 
 export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({ 
@@ -88,10 +101,97 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
     onUpdate({ 
       producerType: {
         ...node.producerType,
-        multiplier: value
+        multiplier: Math.max(1, value)
       }
     });
   };
+
+  const handleMultiplierAdjust = (increase: boolean) => {
+    const current = node.producerType.multiplier;
+    const newValue = increase 
+      ? current * 2 
+      : current / 2;
+    onUpdate({ 
+      producerType: {
+        ...node.producerType,
+        multiplier: Math.max(1, newValue)
+      }
+    });
+  };
+
+  const handleMachineAdjust = (increase: boolean) => {
+    const newValue = increase 
+      ? node.producerCount + 1 
+      : Math.max(1, node.producerCount - 1);
+    onUpdate({ producerCount: newValue });
+  };
+
+  const InputWithButtons: React.FC<InputWithButtonsProps> = ({ 
+    value, 
+    onChange, 
+    onIncrease, 
+    onDecrease, 
+    label, 
+    step = 0.1,
+    leftButton = <RemoveIcon fontSize="small" />,
+    rightButton = <AddIcon fontSize="small" />
+  }) => (
+    <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
+      <IconButton
+        size="small"
+        onClick={(e) => { e.stopPropagation(); onDecrease(); }}
+        sx={{
+          borderRadius: '4px 0 0 4px',
+          bgcolor: 'action.hover',
+          '&:hover': { bgcolor: 'action.selected' },
+          height: 'auto',
+          mr: '-1px'
+        }}
+      >
+        {leftButton}
+      </IconButton>
+      <TextField
+        fullWidth
+        label={label}
+        type="number"
+        size="small"
+        value={value}
+        onChange={onChange}
+        onClick={(e) => {
+          e.stopPropagation();
+          (e.target as HTMLInputElement).select();
+        }}
+        inputProps={{ 
+          step,
+          style: { textAlign: 'center' },
+          // Remove spinner arrows
+          'aria-label': label,
+          sx: {
+            '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+              '-webkit-appearance': 'none',
+              margin: 0
+            },
+            '&[type=number]': {
+              '-moz-appearance': 'textfield'
+            }
+          }
+        }}
+      />
+      <IconButton
+        size="small"
+        onClick={(e) => { e.stopPropagation(); onIncrease(); }}
+        sx={{
+          borderRadius: '0 4px 4px 0',
+          bgcolor: 'action.hover',
+          '&:hover': { bgcolor: 'action.selected' },
+          height: 'auto',
+          ml: '-1px'
+        }}
+      >
+        {rightButton}
+      </IconButton>
+    </Box>
+  );
 
   return node.isByproduct ? (
     // Byproduct Node
@@ -190,46 +290,29 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
 
           {/* Machine Settings */}
           <Grid item xs={12} sm={2}>
-            <TextField
-              fullWidth
-              label="Machines"
-              type="number"
-              size="small"
+            <InputWithButtons
               value={node.producerCount}
               onChange={handleMachineCountChange}
-              onClick={(e) => {
-                e.stopPropagation();
-                (e.target as HTMLInputElement).select();
-              }}
-              inputProps={{ min: 1 }}
+              onIncrease={() => handleMachineAdjust(true)}
+              onDecrease={() => handleMachineAdjust(false)}
+              label="Machines"
+              step={1}
             />
           </Grid>
           <Grid item xs={12} sm={2}>
-            <TextField
-              fullWidth
-              label="Multiplier"
-              type="number"
-              size="small"
+            <InputWithButtons
               value={node.producerType.multiplier}
               onChange={handleMultiplierChange}
-              onClick={(e) => {
-                e.stopPropagation();
-                (e.target as HTMLInputElement).select();
-              }}
-              inputProps={{ min: 0.1, step: 0.1 }}
+              onIncrease={() => handleMultiplierAdjust(true)}
+              onDecrease={() => handleMultiplierAdjust(false)}
+              label="×"
+              step={1}
             />
           </Grid>
 
-          {/* Excess Rate with embedded buttons */}
+          {/* Excess Rate */}
           <Grid item xs={12} sm={4}>
-            <Box 
-              sx={{ 
-                position: 'relative',
-                '&:hover .excess-controls': {
-                  opacity: 1
-                }
-              }}
-            >
+            <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
               <TextField
                 fullWidth
                 label="Excess"
@@ -241,50 +324,53 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
                   e.stopPropagation();
                   (e.target as HTMLInputElement).select();
                 }}
-                inputProps={{ step: 0.1 }}
-                sx={{
-                  '& .MuiInputBase-root': {
-                    pr: '80px' // Make room for the buttons
+                inputProps={{ 
+                  step: 0.1,
+                  style: { textAlign: 'center' },
+                  'aria-label': 'Excess',
+                  sx: {
+                    '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+                      '-webkit-appearance': 'none',
+                      margin: 0
+                    },
+                    '&[type=number]': {
+                      '-moz-appearance': 'textfield'
+                    }
                   }
                 }}
               />
-              <Box 
-                className="excess-controls"
-                sx={{ 
-                  position: 'absolute',
-                  right: 8,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  display: 'flex',
-                  gap: 0.5,
-                  opacity: 0,
-                  transition: 'opacity 0.2s',
-                  backgroundColor: 'background.paper',
-                  borderRadius: 1,
-                  px: 0.5
+              <IconButton
+                size="small"
+                onClick={handleClearExcess}
+                sx={{
+                  borderRadius: '0',
+                  bgcolor: 'action.hover',
+                  '&:hover': { 
+                    bgcolor: 'action.selected',
+                    color: 'error.main'
+                  },
+                  height: 'auto',
+                  ml: '-1px'
                 }}
               >
-                <IconButton 
-                  size="small" 
-                  onClick={handleClearExcess}
-                  sx={{ 
-                    p: 0.5,
-                    '&:hover': { color: 'error.main' }
-                  }}
-                >
-                  <ClearIcon fontSize="small" />
-                </IconButton>
-                <IconButton 
-                  size="small" 
-                  onClick={handleMaxExcess}
-                  sx={{ 
-                    p: 0.5,
-                    '&:hover': { color: 'primary.main' }
-                  }}
-                >
-                  <SpeedIcon fontSize="small" />
-                </IconButton>
-              </Box>
+                <ClearIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={handleMaxExcess}
+                sx={{
+                  borderRadius: '0 4px 4px 0',
+                  bgcolor: 'action.hover',
+                  '&:hover': { 
+                    bgcolor: 'action.selected',
+                    color: 'primary.main'
+                  },
+                  height: 'auto',
+                  ml: '-1px'
+                }}
+              >
+                <SpeedIcon fontSize="small" />
+              </IconButton>
             </Box>
           </Grid>
         </Grid>
