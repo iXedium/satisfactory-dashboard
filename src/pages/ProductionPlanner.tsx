@@ -199,83 +199,89 @@ export const ProductionPlanner: React.FC = () => {
     setExpanded(itemIds);
   };
 
+  // Helper to find path from root to target node
+  const findNodePath = useCallback((nodes: ProductionTreeNode[], targetId: string): string[] | null => {
+    for (const node of nodes) {
+      if (node.id === targetId) {
+        return [node.id];
+      }
+      if (node.inputs) {
+        const childPath = findNodePath(node.inputs, targetId);
+        if (childPath) {
+          return [node.id, ...childPath];
+        }
+      }
+    }
+    return null;
+  }, []);
+
+  // Pure function to update a node and its children
+  const updateNodeAndRates = useCallback((node: ProductionTreeNode, changes: Partial<ProductionTreeNode>): ProductionTreeNode => {
+    // Create new node with changes
+    const updatedNode = {
+      ...node,
+      ...changes,
+      // Create new inputs array if it exists
+      inputs: node.inputs ? [...node.inputs] : undefined
+    };
+    
+    // Calculate new rates for this node and its subtree
+    return updateProductionNode(updatedNode, recipes);
+  }, [recipes]);
+
+  // Pure function to update tree following a path
+  const updateTreeAlongPath = useCallback((
+    nodes: ProductionTreeNode[],
+    path: string[],
+    targetId: string,
+    changes: Partial<ProductionTreeNode>
+  ): ProductionTreeNode[] => {
+    // Create a new array reference
+    return nodes.map(node => {
+      // If this node isn't in our path, preserve its reference
+      if (node.id !== path[0]) {
+        return node;
+      }
+
+      // If this is our target node, apply changes and update rates
+      if (node.id === targetId) {
+        return updateNodeAndRates(node, changes);
+      }
+
+      // This node is in the path but isn't the target
+      // Create a new reference for this node
+      const newNode = { ...node };
+
+      // If this node has inputs, recursively update the matching input
+      if (newNode.inputs) {
+        const restOfPath = path.slice(1);
+        newNode.inputs = updateTreeAlongPath(
+          newNode.inputs,
+          restOfPath,
+          targetId,
+          changes
+        );
+        // After updating children, recalculate rates for this node
+        return updateProductionNode(newNode, recipes);
+      }
+
+      return node;
+    });
+  }, [recipes, updateNodeAndRates]);
+
   const handleNodeUpdate = useCallback((nodeId: string, updates: Partial<ProductionTreeNode>) => {
     setProductionTree(prevTree => {
-      // Helper to find path from root to target node
-      const findNodePath = (nodes: ProductionTreeNode[], targetId: string): string[] | null => {
-        for (const node of nodes) {
-          if (node.id === targetId) {
-            return [node.id];
-          }
-          if (node.inputs) {
-            const childPath = findNodePath(node.inputs, targetId);
-            if (childPath) {
-              return [node.id, ...childPath];
-            }
-          }
-        }
-        return null;
-      };
+      // Find the path from root to target node
+      const path = findNodePath(prevTree, nodeId);
+      if (!path) return prevTree;
 
-      // Helper to update a single node and its children
-      const updateNodeAndChildren = (node: ProductionTreeNode, changes: Partial<ProductionTreeNode>): ProductionTreeNode => {
-        // Create new node with changes
-        const updatedNode = {
-          ...node,
-          ...changes
-        };
+      // Update the tree with new references along the path
+      const updatedTree = updateTreeAlongPath(prevTree, path, nodeId, updates);
 
-        // If this node has inputs, create new copies of them with updated rates
-        if (updatedNode.inputs) {
-          updatedNode.inputs = updatedNode.inputs.map(input => ({
-            ...input,
-            inputs: input.inputs ? [...input.inputs] : []
-          }));
-        }
-
-        // Calculate new rates for this node and its entire subtree
-        return updateProductionNode(updatedNode, recipes);
-      };
-
-      // Find the path to the target node
-      const pathToNode = findNodePath(prevTree, nodeId);
-      if (!pathToNode) return prevTree;
-
-      // Create a new copy of the tree
-      return prevTree.map(rootNode => {
-        // If this root node isn't in our path, return it unchanged
-        if (rootNode.id !== pathToNode[0]) {
-          return rootNode;
-        }
-
-        // Helper to update a node in the path
-        const updateNodeInPath = (node: ProductionTreeNode, path: string[], index: number): ProductionTreeNode => {
-          // Create a new reference for this node
-          const newNode = { ...node };
-
-          // If this is our target node, apply the updates
-          if (index === path.length - 1) {
-            return updateNodeAndChildren(newNode, updates);
-          }
-
-          // Otherwise, we need to update one of its children
-          // Create a new inputs array with updated child
-          newNode.inputs = newNode.inputs?.map(input => {
-            if (input.id === path[index + 1]) {
-              return updateNodeInPath(input, path, index + 1);
-            }
-            return input;
-          }) || [];
-
-          // Recalculate rates for this node since a child changed
-          return updateProductionNode(newNode, recipes);
-        };
-
-        // Start the update from the root node
-        return updateNodeInPath(rootNode, pathToNode, 0);
-      });
+      // Return new tree reference
+      return updatedTree;
     });
-  }, [recipes]);
+  }, [findNodePath, updateTreeAlongPath]);
 
   const handleNodeDelete = useCallback((nodeId: string) => {
     setProductionTree(prev => prev.filter(node => node.id !== nodeId));
