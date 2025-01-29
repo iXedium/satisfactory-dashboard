@@ -1,208 +1,147 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
-import { 
-  ProductionChainState, 
-  ProductionAction, 
-  ProductionTreeNode,
-  Recipe,
-  Item
-} from '../types/productionTypes';
+import React, { createContext, useContext, useReducer } from 'react';
+import { Recipe, Producer } from '../db/types';
+import { ProductionTreeNode, ProductionChainState, ProductionAction } from '../types/productionTypes';
+import { updateProductionNode } from '../utils/calculateRates';
 
 const initialState: ProductionChainState = {
   nodes: [],
   items: {},
   recipes: {},
+  selectedNodeId: undefined
 };
 
 const ProductionContext = createContext<{
   state: ProductionChainState;
   dispatch: React.Dispatch<ProductionAction>;
-  calculateRates: (nodeId?: string) => void;
-  addProductionNode: (itemId: string, recipeId: string, targetRate: number) => void;
-  updateNodeRate: (nodeId: string, targetRate: number) => void;
-  toggleNodeCollapse: (nodeId: string) => void;
-} | undefined>(undefined);
+}>({
+  state: initialState,
+  dispatch: () => null
+});
 
-function productionReducer(state: ProductionChainState, action: ProductionAction): ProductionChainState {
+export const useProduction = () => useContext(ProductionContext);
+
+const productionReducer = (state: ProductionChainState, action: ProductionAction): ProductionChainState => {
   switch (action.type) {
-    case 'ADD_NODE':
-      return {
-        ...state,
-        nodes: [...state.nodes, action.payload],
-      };
-    
-    case 'REMOVE_NODE':
-      return {
-        ...state,
-        nodes: state.nodes.filter(node => node.id !== action.payload),
-      };
-    
-    case 'UPDATE_NODE':
-      return {
-        ...state,
-        nodes: state.nodes.map(node => 
-          node.id === action.payload.id ? { ...node, ...action.payload.updates } : node
-        ),
-      };
-    
-    case 'SET_SELECTED_NODE':
-      return {
-        ...state,
-        selectedNodeId: action.payload,
-      };
-    
-    case 'TOGGLE_NODE_COLLAPSE':
-      return {
-        ...state,
-        nodes: state.nodes.map(node =>
-          node.id === action.payload ? { ...node, collapsed: !node.collapsed } : node
-        ),
-      };
-    
-    case 'UPDATE_RATES':
-      return {
-        ...state,
-        nodes: action.payload,
-      };
-    
-    default:
-      return state;
-  }
-}
+    case 'ADD_NODE': {
+      const { recipe, targetRate } = action.payload;
+      const timestamp = Date.now();
+      const nodeId = `node-${timestamp}`;
 
-export function ProductionProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(productionReducer, initialState);
-
-  const calculateRates = useCallback((startNodeId?: string) => {
-    const nodes = [...state.nodes];
-    const updatedNodes = calculateProductionRates(nodes, state.recipes, startNodeId);
-    dispatch({ type: 'UPDATE_RATES', payload: updatedNodes });
-  }, [state.nodes, state.recipes]);
-
-  const addProductionNode = useCallback((itemId: string, recipeId: string, targetRate: number) => {
-    const recipe = state.recipes[recipeId];
-    if (!recipe) return;
-
-    const newNode: ProductionTreeNode = {
-      id: crypto.randomUUID(),
-      recipeId,
-      name: state.items[itemId]?.name || '',
-      producerType: {
-        type: recipe.producerType,
-        multiplier: 1,
-      },
-      producerCount: 1,
-      isByproduct: false,
-      targetRate,
-      actualRate: 0,
-      excessRate: 0,
-      efficiency: 100,
-      inputs: [],
-    };
-
-    dispatch({ type: 'ADD_NODE', payload: newNode });
-    calculateRates(newNode.id);
-  }, [state.recipes, state.items, calculateRates]);
-
-  const updateNodeRate = useCallback((nodeId: string, targetRate: number) => {
-    dispatch({
-      type: 'UPDATE_NODE',
-      payload: { id: nodeId, updates: { targetRate } },
-    });
-    calculateRates(nodeId);
-  }, [calculateRates]);
-
-  const toggleNodeCollapse = useCallback((nodeId: string) => {
-    dispatch({ type: 'TOGGLE_NODE_COLLAPSE', payload: nodeId });
-  }, []);
-
-  return (
-    <ProductionContext.Provider value={{
-      state,
-      dispatch,
-      calculateRates,
-      addProductionNode,
-      updateNodeRate,
-      toggleNodeCollapse,
-    }}>
-      {children}
-    </ProductionContext.Provider>
-  );
-}
-
-export function useProduction() {
-  const context = useContext(ProductionContext);
-  if (context === undefined) {
-    throw new Error('useProduction must be used within a ProductionProvider');
-  }
-  return context;
-}
-
-// Helper function to calculate production rates recursively
-function calculateProductionRates(
-  nodes: ProductionTreeNode[],
-  recipes: { [id: string]: Recipe },
-  startNodeId?: string
-): ProductionTreeNode[] {
-  const processNode = (node: ProductionTreeNode): ProductionTreeNode => {
-    const recipe = recipes[node.recipeId];
-    if (!recipe) return node;
-
-    // Calculate base production rate per machine
-    const baseRate = (60 / recipe.baseCraftTime) * recipe.outputs[0].amount;
-    const requiredMachines = Math.ceil(node.targetRate / baseRate);
-    
-    // Calculate actual and excess rates
-    const actualRate = baseRate * requiredMachines;
-    const excessRate = actualRate - node.targetRate;
-    const efficiency = (node.targetRate / actualRate) * 100;
-
-    // Update node with calculated values
-    const updatedNode = {
-      ...node,
-      producerCount: requiredMachines,
-      actualRate,
-      excessRate,
-      efficiency,
-    };
-
-    // Calculate input requirements and create/update input nodes
-    if (!node.inputs) {
-      updatedNode.inputs = recipe.inputs.map(input => ({
-        id: crypto.randomUUID(),
-        recipeId: '', // This needs to be selected by the user
-        name: input.itemId,
-        producerType: { type: '', multiplier: 1 },
+      const newNode: ProductionTreeNode = {
+        id: nodeId,
+        recipeId: recipe.id,
+        name: Object.keys(recipe.out)[0],
+        producerType: {
+          type: recipe.producers[0].type,
+          multiplier: 1,
+          icon: recipe.producers[0].icon
+        },
         producerCount: 1,
         isByproduct: false,
-        targetRate: (input.amount / recipe.outputs[0].amount) * node.targetRate,
+        targetRate,
         actualRate: 0,
         excessRate: 0,
         efficiency: 100,
-      }));
-    } else {
-      updatedNode.inputs = node.inputs.map(input => {
-        const inputRecipe = recipes[input.recipeId];
-        if (!inputRecipe) return input;
-        
-        const inputRequirement = recipe.inputs.find(req => req.itemId === input.name);
-        if (!inputRequirement) return input;
+        inputs: []
+      };
 
-        return {
-          ...input,
-          targetRate: (inputRequirement.amount / recipe.outputs[0].amount) * node.targetRate,
-        };
-      });
+      // Create input nodes recursively
+      const createInputNodes = (
+        recipe: Recipe,
+        parentRate: number,
+        processedItems: Set<string> = new Set()
+      ): ProductionTreeNode[] => {
+        const nodes: ProductionTreeNode[] = [];
+
+        // Process inputs
+        Object.entries(recipe.in).forEach(([inputId, quantity]) => {
+          if (processedItems.has(inputId)) return;
+
+          const inputRecipes = Object.values(state.recipes)
+            .filter(r => Object.keys(r.out).includes(inputId));
+          
+          if (!inputRecipes.length) return;
+
+          const inputRecipe = inputRecipes[0];
+          const mainOutput = Object.entries(recipe.out)[0];
+          const inputRate = (quantity / mainOutput[1]) * parentRate;
+          processedItems.add(inputId);
+
+          const inputNode: ProductionTreeNode = {
+            id: `${nodeId}-${inputId}`,
+            recipeId: inputRecipe.id,
+            name: inputId,
+            producerType: {
+              type: inputRecipe.producers[0].type,
+              multiplier: 1,
+              icon: inputRecipe.producers[0].icon
+            },
+            producerCount: 1,
+            isByproduct: false,
+            targetRate: inputRate,
+            actualRate: 0,
+            excessRate: 0,
+            efficiency: 100,
+            inputs: []
+          };
+
+          inputNode.inputs = createInputNodes(inputRecipe, inputRate, processedItems);
+          nodes.push(inputNode);
+        });
+
+        return nodes;
+      };
+
+      newNode.inputs = createInputNodes(recipe, targetRate);
+      const updatedNode = updateProductionNode(newNode, Object.values(state.recipes));
+
+      return {
+        ...state,
+        nodes: [...state.nodes, updatedNode]
+      };
     }
 
-    return updatedNode;
-  };
+    case 'UPDATE_NODE': {
+      const { nodeId, updates } = action.payload;
+      const updatedNodes = state.nodes.map(node => {
+        if (node.id === nodeId) {
+          const updatedNode = { ...node, ...updates };
+          return updateProductionNode(updatedNode, Object.values(state.recipes));
+        }
+        return node;
+      });
 
-  if (startNodeId) {
-    return nodes.map(node => 
-      node.id === startNodeId ? processNode(node) : node
-    );
+      return {
+        ...state,
+        nodes: updatedNodes
+      };
+    }
+
+    case 'REMOVE_NODE': {
+      return {
+        ...state,
+        nodes: state.nodes.filter(node => node.id !== action.payload)
+      };
+    }
+
+    case 'SET_SELECTED_NODE': {
+      return {
+        ...state,
+        selectedNodeId: action.payload
+      };
+    }
+
+    default:
+      return state;
   }
+};
 
-  // Process all root nodes if no specific node is specified
-  return nodes.map(processNode);
-} 
+export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [state, dispatch] = useReducer(productionReducer, initialState);
+
+  return (
+    <ProductionContext.Provider value={{ state, dispatch }}>
+      {children}
+    </ProductionContext.Provider>
+  );
+}; 

@@ -1,3 +1,5 @@
+import { Recipe, Item } from '../db/types';
+
 export interface Item {
   id: string;
   name: string;
@@ -44,7 +46,6 @@ export interface ProductionTreeNode {
   excessRate: number; // Additional production rate beyond what's needed
   efficiency: number;  // Current efficiency/overclock percentage
   inputs?: ProductionTreeNode[];
-  collapsed?: boolean; // For UI tree view state
 }
 
 export interface ProductionRate {
@@ -90,6 +91,6 @@ export interface ProductionChainState {
 }
 
 export interface ProductionAction {
-  type: 'ADD_NODE' | 'REMOVE_NODE' | 'UPDATE_NODE' | 'SET_SELECTED_NODE' | 'TOGGLE_NODE_COLLAPSE' | 'UPDATE_RATES';
-  payload: any;
+  type: 'ADD_NODE' | 'REMOVE_NODE' | 'UPDATE_NODE' | 'SET_SELECTED_NODE';
+  payload: any;  // Type this better based on the action
 }
