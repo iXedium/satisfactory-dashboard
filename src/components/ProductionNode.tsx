@@ -1,6 +1,6 @@
 // Filename: src/components/ProductionNode.tsx
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useEffect } from 'react';
 import { Card, CardContent, Grid, TextField, Select, MenuItem, Typography, SelectChangeEvent, useTheme, Box, IconButton } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 import SpeedIcon from '@mui/icons-material/Speed';
@@ -119,21 +119,91 @@ const ProductionNodeContent: React.FC<ProductionNodeProps> = ({
   alternateRecipes,
   onUpdate 
 }) => {
+  console.log('🔍 ProductionNode render:', {
+    node: {
+      name: node.name,
+      targetRate: node.targetRate,
+      actualRate: node.actualRate,
+      excessRate: node.excessRate,
+      producerCount: node.producerCount,
+      multiplier: node.producerType.multiplier
+    }
+  });
+
   const { items } = useStaticData();
   const theme = useTheme();
   
   // Memoize item and recipe lookups
-  const item = useMemo(() => items.find(i => i.id === node.name), [items, node.name]);
-  const recipe = useMemo(() => recipes.find(r => r.id === node.recipeId), [recipes, node.recipeId]);
+  const item = useMemo(() => {
+    const foundItem = items.find(i => i.id === node.name);
+    console.log('🔍 Item memo:', { node: node.name, foundItem: foundItem?.name });
+    return foundItem;
+  }, [items, node.name]);
+
+  const recipe = useMemo(() => {
+    const foundRecipe = recipes.find(r => r.id === node.recipeId);
+    console.log('🔍 Recipe memo:', { 
+      node: node.name, 
+      recipeId: node.recipeId,
+      foundRecipe: foundRecipe?.name 
+    });
+    return foundRecipe;
+  }, [recipes, node.recipeId, node.name]);
 
   // Memoize machine clock calculation
-  const { machineClock, totalRate } = useMemo(() => {
+  const { machineClock } = useMemo(() => {
     if (!recipe) return { machineClock: 0, totalRate: 0 };
     const total = node.actualRate + node.excessRate;
     const nominalRate = (60 / recipe.time) * recipe.out[node.name] * node.producerType.multiplier;
     const clock = node.producerCount > 0 ? (total / node.producerCount / nominalRate) * 100 : 0;
+    console.log('🔍 Clock memo:', {
+      node: node.name,
+      total,
+      nominalRate,
+      clock,
+      inputs: {
+        actualRate: node.actualRate,
+        excessRate: node.excessRate,
+        producerCount: node.producerCount,
+        multiplier: node.producerType.multiplier,
+        recipeTime: recipe.time,
+        recipeOutput: recipe.out[node.name]
+      }
+    });
     return { machineClock: clock, totalRate: total };
   }, [recipe, node.actualRate, node.excessRate, node.producerCount, node.producerType.multiplier, node.name]);
+
+  // Effect to handle MaxExcess calculation
+  useEffect(() => {
+    if (!recipe) return;
+
+    // Get the latest values from props
+    const currentRate = node.targetRate;
+    const currentClock = machineClock;
+
+    // If we're already at or above 100% clock, do nothing
+    if (currentClock >= 100) {
+      console.log('⚡ Already at max clock, no excess needed');
+      return;
+    }
+
+    // Calculate needed excess based on current clock percentage
+    const neededExcess = ((100 - currentClock) / currentClock) * currentRate;
+
+    console.log('📊 MaxExcess calculation (useEffect):', {
+      currentClock,
+      calculatedRate: currentRate,
+      neededExcess,
+      expectedFinalClock: 100,
+      debug: {
+        formula: `((100 - ${currentClock}) / ${currentClock}) * ${currentRate}`,
+        expectedTotal: currentRate + neededExcess
+      }
+    });
+
+    // Update the excess rate
+    onUpdate({ excessRate: neededExcess });
+  }, [node.targetRate, machineClock, recipe, onUpdate]);
 
   // Memoize handlers
   const handleClockClick = useCallback((event: React.MouseEvent) => {
@@ -153,10 +223,44 @@ const ProductionNodeContent: React.FC<ProductionNodeProps> = ({
 
   const handleMaxExcess = useCallback(() => {
     if (!recipe) return;
-    const targetRate = node.producerCount * (60 / recipe.time) * recipe.out[node.name] * node.producerType.multiplier;
-    const excessNeeded = targetRate - node.actualRate;
-    onUpdate({ excessRate: Math.max(0, excessNeeded) });
-  }, [recipe, node.producerCount, node.actualRate, node.producerType.multiplier, node.name, onUpdate]);
+    
+    // Get the latest values from props
+    const currentRate = node.targetRate;
+    const currentClock = machineClock;
+    
+    console.log('🎯 MaxExcess clicked:', {
+      node: node.name,
+      currentClock,
+      calculatedRate: currentRate,
+      currentActual: node.actualRate,
+      currentExcess: node.excessRate,      
+    });
+
+    // If we're already at or above 100% clock, do nothing
+    if (currentClock >= 100) {
+      console.log('⚡ Already at max clock, no excess needed');
+      return;
+    }
+    
+    // Calculate needed excess based on current clock percentage
+    // If we're at 50% clock with 30 target rate, we need another 30 excess
+    // If we're at 40% clock with 20 target rate, we need ((100-40)/40)*20 = 30 excess
+    const neededExcess = ((100 - currentClock) / currentClock) * currentRate;
+    
+    console.log('📊 MaxExcess calculation:', {
+      currentClock,
+      calculatedRate: currentRate,
+      neededExcess,
+      expectedFinalClock: 100,
+      debug: {
+        formula: `((100 - ${currentClock}) / ${currentClock}) * ${currentRate}`,
+        expectedTotal: currentRate + neededExcess
+      }
+    });
+
+    // Update the excess rate
+    onUpdate({ excessRate: neededExcess });
+  }, [recipe, node, machineClock, onUpdate, node.targetRate, node.actualRate, node.excessRate]);
 
   const handleMachineCountChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(event.target.value) || 1;
@@ -217,7 +321,7 @@ const ProductionNodeContent: React.FC<ProductionNodeProps> = ({
           Byproduct: {item?.name || node.name}
         </Typography>
         <Typography variant="h6" color="primary" sx={{ textAlign: 'right' }}>
-          {Math.abs(node.actualRate).toFixed(1)}
+          {(node.actualRate + node.excessRate).toFixed(1)}
         </Typography>
       </CardContent>
     </Card>
@@ -361,14 +465,47 @@ ProductionNodeContent.displayName = 'ProductionNodeContent';
 
 // Wrap the entire component with memo and a proper comparison function
 export const ProductionNode = React.memo(ProductionNodeContent, (prevProps, nextProps) => {
-  // Only re-render if these specific properties change
-  return prevProps.node.id === nextProps.node.id &&
-         prevProps.node.recipeId === nextProps.node.recipeId &&
-         prevProps.node.producerCount === nextProps.node.producerCount &&
-         prevProps.node.producerType.multiplier === nextProps.node.producerType.multiplier &&
-         prevProps.node.actualRate === nextProps.node.actualRate &&
-         prevProps.node.excessRate === nextProps.node.excessRate &&
-         prevProps.node.targetRate === nextProps.node.targetRate &&
+  const nodeChanged = 
+    prevProps.node.id !== nextProps.node.id ||
+    prevProps.node.recipeId !== nextProps.node.recipeId ||
+    prevProps.node.producerCount !== nextProps.node.producerCount ||
+    prevProps.node.producerType.multiplier !== nextProps.node.producerType.multiplier ||
+    prevProps.node.actualRate !== nextProps.node.actualRate ||
+    prevProps.node.excessRate !== nextProps.node.excessRate ||
+    prevProps.node.targetRate !== nextProps.node.targetRate ||
+    prevProps.node.machineClock !== nextProps.node.machineClock;
+
+  console.log('🔍 ProductionNode memo compare:', {
+    node: nextProps.node.name,
+    shouldUpdate: nodeChanged || 
+                 prevProps.recipes !== nextProps.recipes ||
+                 prevProps.alternateRecipes !== nextProps.alternateRecipes,
+    changes: {
+      id: prevProps.node.id !== nextProps.node.id,
+      recipeId: prevProps.node.recipeId !== nextProps.node.recipeId,
+      producerCount: prevProps.node.producerCount !== nextProps.node.producerCount,
+      multiplier: prevProps.node.producerType.multiplier !== nextProps.node.producerType.multiplier,
+      actualRate: prevProps.node.actualRate !== nextProps.node.actualRate,
+      excessRate: prevProps.node.excessRate !== nextProps.node.excessRate,
+      targetRate: prevProps.node.targetRate !== nextProps.node.targetRate,
+      machineClock: prevProps.node.machineClock !== nextProps.node.machineClock,
+      recipes: prevProps.recipes !== nextProps.recipes,
+      alternateRecipes: prevProps.alternateRecipes !== nextProps.alternateRecipes
+    },
+    prev: {
+      targetRate: prevProps.node.targetRate,
+      actualRate: prevProps.node.actualRate,
+      excessRate: prevProps.node.excessRate
+    },
+    next: {
+      targetRate: nextProps.node.targetRate,
+      actualRate: nextProps.node.actualRate,
+      excessRate: nextProps.node.excessRate
+    }
+  });
+
+  // Return true if nothing changed (skip re-render)
+  return !nodeChanged && 
          prevProps.recipes === nextProps.recipes &&
          prevProps.alternateRecipes === nextProps.alternateRecipes;
 });
