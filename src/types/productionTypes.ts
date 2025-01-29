@@ -45,6 +45,7 @@ export interface ProductionTreeNode {
   actualRate: number;  // Actual production rate after calculations
   excessRate: number; // Additional production rate beyond what's needed
   efficiency: number;  // Current efficiency/overclock percentage
+  machineClock: number; // Machine clock percentage (actual vs nominal rate per machine)
   inputs?: ProductionTreeNode[];
 }
 

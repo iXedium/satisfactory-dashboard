@@ -1,6 +1,24 @@
 import { createTheme, Theme } from "@mui/material/styles";
 import { alpha } from "@mui/material/styles";
 
+// Extend the palette to include machine states
+declare module '@mui/material/styles' {
+  interface Palette {
+    machineStates: {
+      optimal: string;
+      underclocked: string;
+      overclocked: string;
+    }
+  }
+  interface PaletteOptions {
+    machineStates?: {
+      optimal: string;
+      underclocked: string;
+      overclocked: string;
+    }
+  }
+}
+
 const darkThemeColors = {
   primary: {
     main: "#7ab3a4",
@@ -25,6 +43,11 @@ const darkThemeColors = {
     light: alpha("#F6C90E", 0.12),
     dark: alpha("#F6C90E", 0.8),
     contrastText: "#FFFFFF",
+  },
+  machineStates: {
+    optimal: "#7ab3a4",     // Muted green for 100%
+    underclocked: "#e6c478", // Muted yellow for under 100%
+    overclocked: "#e67878", // Muted red for over 100%
   },
   background: {
     default: "#141825",

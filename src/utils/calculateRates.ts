@@ -20,6 +20,15 @@ export const calculateBaseRate = (recipe: Recipe, producerType: Producer, produc
 };
 
 /**
+ * Calculate the nominal (base) rate per machine for a recipe
+ */
+export const calculateNominalRate = (recipe: Recipe, producerType: Producer): number => {
+  const mainOutput = Object.entries(recipe.out)[0];
+  const baseRate = (60 / recipe.time) * mainOutput[1];  // Convert to per minute
+  return baseRate * producerType.multiplier;
+};
+
+/**
  * Calculate all rates for a production node
  */
 export const calculateNodeRates = (node: ProductionTreeNode, recipe: Recipe): ProductionTreeNode => {
@@ -32,10 +41,17 @@ export const calculateNodeRates = (node: ProductionTreeNode, recipe: Recipe): Pr
   // Calculate efficiency based on target vs max rate
   const efficiency = (actualRate / maxRate) * 100;
 
+  // Calculate machine clock (actual production rate per machine vs nominal rate)
+  const nominalRate = calculateNominalRate(recipe, node.producerType);
+  const machineClock = node.producerCount > 0 
+    ? (actualRate / node.producerCount / nominalRate) * 100 
+    : 0;
+
   return {
     ...node,
     actualRate,
-    efficiency
+    efficiency,
+    machineClock
   };
 };
 
