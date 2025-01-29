@@ -155,6 +155,7 @@ export const ProductionPlanner: React.FC = () => {
                     actualRate: 0,
                     excessRate: 0,
                     efficiency: 100,
+                    machineClock: 100,
                     inputs: []
                   };
 
@@ -242,6 +243,7 @@ export const ProductionPlanner: React.FC = () => {
       actualRate: 0,
       excessRate: 0,
       efficiency: 100,
+      machineClock: 100,
       inputs: []
     };
 
@@ -282,6 +284,7 @@ export const ProductionPlanner: React.FC = () => {
           actualRate: 0,
           excessRate: 0,
           efficiency: 100,
+          machineClock: 100,
           inputs: []
         };
 
@@ -314,6 +317,7 @@ export const ProductionPlanner: React.FC = () => {
             actualRate: 0,
             excessRate: 0,
             efficiency: 100,
+            machineClock: 0,
             inputs: []
           });
         }
@@ -354,7 +358,31 @@ export const ProductionPlanner: React.FC = () => {
         expandIcon={<ChevronRightIcon />}
         collapseIcon={<ExpandMoreIcon />}
         label={
-          <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+          <Box sx={{ position: 'relative' }}>
+            {isRoot && (
+              <IconButton 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteNode(node.id);
+                }}
+                size="small"
+                sx={{ 
+                  position: 'absolute',
+                  left: -36,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  zIndex: 1,
+                  p: 0.5,
+                  bgcolor: 'action.hover',
+                  '&:hover': { 
+                    bgcolor: 'action.selected',
+                    color: 'error.main'
+                  }
+                }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            )}
             <Box sx={{ flexGrow: 1 }}>
               <ProductionNode
                 node={node}
@@ -363,18 +391,6 @@ export const ProductionPlanner: React.FC = () => {
                 onUpdate={(updates) => handleNodeUpdate(node.id, updates)}
               />
             </Box>
-            {isRoot && (
-              <IconButton 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteNode(node.id);
-                }}
-                size="small"
-                sx={{ ml: 1 }}
-              >
-                <DeleteIcon />
-              </IconButton>
-            )}
           </Box>
         }
       >

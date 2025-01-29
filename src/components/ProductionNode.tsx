@@ -1,6 +1,6 @@
 // Filename: src/components/ProductionNode.tsx
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Card, CardContent, Grid, TextField, Select, MenuItem, Typography, SelectChangeEvent, useTheme, Box, IconButton } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 import SpeedIcon from '@mui/icons-material/Speed';
@@ -27,6 +27,18 @@ interface InputWithButtonsProps {
   leftButton?: React.ReactNode;
   rightButton?: React.ReactNode;
 }
+
+const cleanupMachineName = (name: string) => {
+  // Remove -id and -mkX (where X is any number)
+  let cleaned = name.replace(/-id$/, '').replace(/-mk\d+$/, '');
+  
+  // Split by hyphens and capitalize each word
+  cleaned = cleaned.split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+  
+  return cleaned;
+};
 
 export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({ 
   node, 
@@ -64,13 +76,11 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
     onUpdate({ excessRate: value });
   };
 
-  const handleClearExcess = (event: React.MouseEvent) => {
-    event.stopPropagation();
+  const handleClearExcess = () => {
     onUpdate({ excessRate: 0 });
   };
 
-  const handleMaxExcess = (event: React.MouseEvent) => {
-    event.stopPropagation();
+  const handleMaxExcess = () => {
     // Calculate excess needed to reach 100% clock
     const recipe = recipes.find(r => r.id === node.recipeId);
     if (!recipe) return;
@@ -106,7 +116,7 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
     });
   };
 
-  const handleMultiplierAdjust = (increase: boolean) => {
+  const handleMultiplierAdjust = useCallback((increase: boolean) => {
     const current = node.producerType.multiplier;
     const newValue = increase 
       ? current * 2 
@@ -117,14 +127,14 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
         multiplier: Math.max(1, newValue)
       }
     });
-  };
+  }, [node.producerType, onUpdate]);
 
-  const handleMachineAdjust = (increase: boolean) => {
+  const handleMachineAdjust = useCallback((increase: boolean) => {
     const newValue = increase 
       ? node.producerCount + 1 
       : Math.max(1, node.producerCount - 1);
     onUpdate({ producerCount: newValue });
-  };
+  }, [node.producerCount, onUpdate]);
 
   const InputWithButtons: React.FC<InputWithButtonsProps> = ({ 
     value, 
@@ -217,7 +227,7 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
               variant="h6" 
               sx={{ 
                 fontWeight: 'bold',
-                color: 'primary.main',
+                color: 'text.primary',
                 pb: 0.5
               }}
             >
@@ -233,39 +243,51 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
                 pb: 1
               }}
             >
-              {recipe?.producers[0].type} ({(60 / (recipe?.time || 1)).toFixed(2)}/min)
+              {recipe?.producers[0].type ? cleanupMachineName(recipe.producers[0].type) : ''} ({(60 / (recipe?.time || 1)).toFixed(2)}/min)
             </Typography>
           </Grid>
           
           {/* Production Rate and Clock */}
-          <Grid item xs={12} sm={6} sx={{ textAlign: 'right' }}>
-            <Typography variant="h6" color="primary" sx={{ mb: 0.5 }}>
-              {(node.actualRate + node.excessRate).toFixed(1)}/min
-            </Typography>
-            <Box 
-              component="div" 
-              onClick={(e) => handleClockClick(e, machineClock)}
-              sx={{ 
-                cursor: 'pointer',
-                display: 'inline-block',
-                py: 0.5,
-                px: 2,
-                borderRadius: 1,
-                transition: 'background-color 0.2s',
-                '&:hover': {
-                  backgroundColor: 'action.hover'
-                }
-              }}
-            >
+          <Grid item xs={12} sm={6}>
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: 2
+            }}>
               <Typography 
-                variant="body2" 
+                variant="h6" 
                 sx={{ 
-                  color: getMachineClockColor(machineClock),
-                  fontWeight: 500
+                  color: 'text.primary',
+                  fontWeight: 'bold'
                 }}
               >
-                {machineClock.toFixed(2)}%
+                {(node.actualRate + node.excessRate).toFixed(1)}
               </Typography>
+              <Box 
+                component="div" 
+                onClick={(e) => handleClockClick(e, machineClock)}
+                sx={{ 
+                  cursor: 'pointer',
+                  py: 0.5,
+                  px: 2,
+                  borderRadius: 1,
+                  transition: 'background-color 0.2s',
+                  '&:hover': {
+                    backgroundColor: 'action.hover'
+                  }
+                }}
+              >
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    color: getMachineClockColor(machineClock),
+                    fontWeight: 500
+                  }}
+                >
+                  {machineClock.toFixed(2)}%
+                </Typography>
+              </Box>
             </Box>
           </Grid>
         </Grid>
@@ -312,66 +334,16 @@ export const ProductionNode: React.FC<ProductionNodeProps> = React.memo(({
 
           {/* Excess Rate */}
           <Grid item xs={12} sm={4}>
-            <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
-              <TextField
-                fullWidth
-                label="Excess"
-                type="number"
-                size="small"
-                value={node.excessRate}
-                onChange={handleExcessRateChange}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  (e.target as HTMLInputElement).select();
-                }}
-                inputProps={{ 
-                  step: 0.1,
-                  style: { textAlign: 'center' },
-                  'aria-label': 'Excess',
-                  sx: {
-                    '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
-                      '-webkit-appearance': 'none',
-                      margin: 0
-                    },
-                    '&[type=number]': {
-                      '-moz-appearance': 'textfield'
-                    }
-                  }
-                }}
-              />
-              <IconButton
-                size="small"
-                onClick={handleClearExcess}
-                sx={{
-                  borderRadius: '0',
-                  bgcolor: 'action.hover',
-                  '&:hover': { 
-                    bgcolor: 'action.selected',
-                    color: 'error.main'
-                  },
-                  height: 'auto',
-                  ml: '-1px'
-                }}
-              >
-                <ClearIcon fontSize="small" />
-              </IconButton>
-              <IconButton
-                size="small"
-                onClick={handleMaxExcess}
-                sx={{
-                  borderRadius: '0 4px 4px 0',
-                  bgcolor: 'action.hover',
-                  '&:hover': { 
-                    bgcolor: 'action.selected',
-                    color: 'primary.main'
-                  },
-                  height: 'auto',
-                  ml: '-1px'
-                }}
-              >
-                <SpeedIcon fontSize="small" />
-              </IconButton>
-            </Box>
+            <InputWithButtons
+              value={node.excessRate}
+              onChange={handleExcessRateChange}
+              onIncrease={handleMaxExcess}
+              onDecrease={handleClearExcess}
+              label="Excess"
+              step={0.1}
+              leftButton={<ClearIcon fontSize="small" />}
+              rightButton={<SpeedIcon fontSize="small" />}
+            />
           </Grid>
         </Grid>
       </CardContent>
